@@ -1,0 +1,38 @@
+
+     +-------------+                 +-----------+       +---------------------+
+     | <candidate> |                 | <startup> |       | <private-candidate> |-+
+     |  (ct, rw)   |<---+       +--->| (ct, rw)  |    +->|     (ct, rw)        | |-+
+     +-------------+    |       |    +-----------+    |  +---------------------+ | |
+            |           |       |           |         |    +---------------------+ | 
+            |         +-----------+<--------+         |      +---------------------+  
+            +-------->| <running> |                   |            |  // multiple
+                      | (ct, rw)  |-------------------+            |  // private-candidates
+                      +-----------+<-------------------------------+  // possible
+                            |
+                            |        // configuration transformations,
+                            |        // e.g., removal of nodes marked as
+                            |        // "inactive", expansion of
+                            |        // templates
+                            v
+                      +------------+
+                      | <intended> | // subject to validation
+                      | (ct, ro)   |
+                      +------------+
+                            |        // changes applied, subject to
+                            |        // local factors, e.g., missing
+                            |        // resources, delays
+                            |
+       dynamic              |   +-------- learned configuration
+       configuration        |   +-------- system configuration
+       datastores -----+    |   +-------- default configuration
+                       |    |   |
+                       v    v   v
+                    +---------------+
+                    | <operational> | <-- system state
+                    | (ct + cf, ro) |
+                    +---------------+
+
+     ct = config true; cf = config false
+     rw = read-write; ro = read-only
+     boxes denote named datastores
+

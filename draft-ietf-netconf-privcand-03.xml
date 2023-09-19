@@ -1,0 +1,2565 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- 
+     draft-rfcxml-general-template-standard-01
+  
+     This template includes examples of the most commonly used features of RFCXML with comments 
+     explaining how to customise them. This template can be quickly turned into an I-D by editing 
+     the examples provided. Look for [REPLACE], [REPLACE/DELETE], [CHECK] and edit accordingly.
+     Note - 'DELETE' means delete the element or attribute, not just the contents.
+     
+     Documentation is at https://authors.ietf.org/en/templates-and-schemas
+-->
+<?xml-model href="rfc7991bis.rnc"?>
+<!-- Required for schema validation and schema-aware editing -->
+<!-- <?xml-stylesheet type="text/xsl" href="rfc2629.xslt" ?> -->
+<!-- This third-party XSLT can be enabled for direct transformations in XML processors, including most browsers -->
+<!DOCTYPE rfc [
+  <!ENTITY nbsp    "&#160;">
+  <!ENTITY zwsp   "&#8203;">
+  <!ENTITY nbhy   "&#8209;">
+  <!ENTITY wj     "&#8288;">
+]>
+<!-- If further character entities are required then they should be added to the DOCTYPE above.
+     Use of an external entity file is not recommended. -->
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude" 
+      category="std" 
+      docName="draft-ietf-netconf-privcand-03" 
+      ipr="trust200902" 
+      obsoletes="" 
+      updates="6241,8526,9144" 
+      submissionType="IETF" 
+      xml:lang="en" 
+      version="3"
+      consensus="true">
+  <front>
+    <title abbrev="NETCONF Private Candidates">NETCONF Private Candidates</title>
+    <seriesInfo name="Internet-Draft" value="draft-ietf-netconf-privcand-03"/>
+    <author fullname="James Cumming" initials="JG" surname="Cumming">
+      <organization>Nokia</organization>
+      <address>
+        <email>james.cumming@nokia.com</email>
+      </address>
+    </author>
+    <author fullname="Robert Wills" initials="R" surname="Wills">
+      <organization>Cisco Systems</organization>
+      <address>
+        <email>rowills@cisco.com</email>
+      </address>
+    </author>
+    <date day="30" month="05" year="2024"/>
+    <!-- On draft subbmission:
+         * If only the current year is specified, the current day and month will be used.
+         * If the month and year are both specified and are the current ones, the current day will
+           be used
+         * If the year is not the current one, it is necessary to specify at least a month and day="1" will be used.
+    -->
+    <area>General</area>
+    <workgroup>Internet Engineering Task Force</workgroup>
+    <!-- "Internet Engineering Task Force" is fine for individual submissions.  If this element is 
+          not present, the default is "Network Working Group", which is used by the RFC Editor as 
+          a nod to the history of the RFC Series. -->
+    <keyword>NETCONF</keyword>
+    <abstract>
+      <t>This document provides a mechanism to extend the Network Configuration Protocol 
+	     (NETCONF) and RESTCONF protocol to support multiple clients making configuration changes simultaneously and
+         ensuring that they commit only those changes that they defined.</t>
+      <t>This document addresses two specific aspects: The interaction with a private candidate
+        over the NETCONF and RESTCONF protocols and the methods to identify and resolve conflicts between
+        clients.</t>
+    </abstract>
+  </front>
+  <middle>
+    <section>
+      <name>Introduction</name>
+      <t><xref target="RFC6241">NETCONF</xref> and <xref target="RFC8040">RESTCONF</xref>
+	       both provide a mechanism for one or more
+         clients to make configuration changes to a device running as a NETCONF/RESTCONF
+         server.  Each client has the ability to make one or more
+         configuration changes to the server's shared candidate configuration.<br/><br/>
+		 
+		 As the name shared candidate suggests, all clients have access to the same candidate
+		 configuration.  This means that multiple clients may make changes to the shared
+		 candidate prior to the configuration being committed.  This behaviour may be
+		 undesirable as one client may unwittingly commit the configuration changes made
+		 by another client.  <br/><br/>
+		 
+		 NETCONF provides a way to mitigate this behaviour by allowing clients
+		 to place a lock on the shared candidate.  The placing of this lock means that
+		 no other client may make any changes until that lock is released.  This behaviour
+		 is, in many situations, also undesirable.  <br/><br/>
+
+		 Many network devices already support private candidate configurations,
+		 where a user (machine or otherwise) is able to edit a personal copy of a device's
+		 configuration without blocking other users from doing so.<br/><br/>
+	 
+	     This document details the extensions to the NETCONF protocol in order to support
+	     the use of private candidates.  It also describes how the RESTCONF protocol can be
+	     used on a system that implements private candidates.</t>
+      <section>
+        <name>Requirements Language</name>
+        <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL",
+          "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT
+          RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be
+          interpreted as described in BCP 14 <xref target="RFC2119"/>
+          <xref target="RFC8174"/> when, and only when, they appear in
+          all capitals, as shown here.</t>
+      </section>
+    </section>
+    <section>
+      <name>Definitions and terminology</name>
+      <section>
+        <name>Session specific datastore</name>
+        <t>A session specific datastore is a configuration datastore that,
+          unlike the candidate and running configuration datastores which
+          have only one per system, is bound to the specific NETCONF session.
+        </t>
+      </section>
+      <section>
+        <name>Shared candidate configuration</name>
+        <t>The candidate configuration datastore defined in
+          <xref target="RFC6241"/> is referenced as the shared candidate
+          configuration in this document.</t>
+      </section>
+      <section>
+        <name>Private candidate configuration</name>
+        <t>A private candidate configuration is a session specific candidate
+          configuration datastore.</t>
+        <t>When a private candidate is used by NETCONF, the specific session
+	  (and user) that created the private
+          candidate configuration is the only session (user) that has access
+          to it over NETCONF.  Devices may expose this to other users through
+          other interfaces but this is out of scope for this document.</t>
+	    <t>When a private candidate is used by RESTCONF, the client that created
+          the private candidate configuration is the only client that has access
+          to it over RESTCONF.</t>
+        <t>The private candidate configuration contains a full copy of the running
+          configuration when it is created (in the same way as a branch does in
+          a source control management system and in the same way as the candidate
+          configuration datastore as defined in <xref target="RFC6241"/>).
+          Any changes made to it, for example, through the use of operations such
+          as &lt;edit-config&gt; and &lt;edit-data&gt;, are made in this private
+          candidate configuration.</t>
+        <t>Obtaining this private candidate over NETCONF or RESTCONF will display the entire
+          configuration, including all changes made to it.  Performing a &lt;commit&gt;
+          operation will merge the changes from the private candidate into the
+          running configuration (the same as a merge in source code management systems).
+          A &lt;discard-changes&gt; operation will revert the private candidate to the
+          branch's initial state or it's state at the last &lt;commit&gt; (whichever
+          is most recent).</t>
+        <t>All changes made to this private candidate configuration are held
+           separately from any other candidate configuration changes, whether
+           made by other users to the shared candidate or any other private candidate,
+           and are not visible to or accessible by anyone else.</t>
+      </section>
+    </section>
+    <section>
+      <name>Limitations using the shared candidate configuration for multiple clients</name>
+      <t>The following sections describe some limitations and mitigation factors in
+      more detail for the use of the shared candidate configuration during multi-client
+      configuration over NETCONF or RESTCONF.</t>
+      <section>
+        <name>Issues</name>
+        <section>
+          <name>Unintended deployment of alternate users configuration changes</name>
+          <t>Consider the following scenario:</t>
+          <ol>
+            <li>Client 1 modifies item A in the shared candidate configuration</li>
+            <li>Client 2 then modifies item B in the shared candidate configuration</li>
+            <li>Client 2 then issues a &lt;commit&gt; RPC</li>
+          </ol>
+          <t>In this situation, both client 1 and client 2 configurations will be committed by
+            client 2.  In a machine-to-machine environment client 2 may not have been aware of
+            the change to item A and, if they had been aware, may have decided not to proceed.
+          </t>
+        </section>
+      </section>
+      <section>
+        <name>Current mitigation strategies</name>
+        <section>
+          <name>Locking the shared candidate configuration datastore</name>
+          <t>
+            In order to resolve unintended deployment of alternate users configuration changes
+            as described above NETCONF provides the ability to lock a datastore in order to
+            restrict other users from editing and committed changes.
+          </t>
+          <t>This does resolve the specific issue above, however, it introduces another issue.
+             Whilst one of the clients holds a lock, no other client may edit the configuration.
+             This will result in the client failing and having to retry.  Whilst this may be a
+             desirable consequence when two clients are editing the same section of the configuration,
+             where they are editing different sections this behaviour may hold up valid operational
+             activity.</t>
+          <t>Additionally, a lock placed on the shared candidate configuration must also lock the
+          running configuration, otherwise changes committed directly into the running datastore
+          may conflict.</t>
+	  <t>Finally, this locking mechanism isn't available to RESTCONF clients.</t>
+        </section>
+        <section>
+          <name>Always use the running configuration datastore</name>
+          <t>The use of the running configuration datastore as the target for all configuration
+          changes does not resolve any issues regarding blocking of system access in the case a
+          lock is taken, nor does it provide a solution for multiple NETCONF and RESTCONF clients as each
+          configuration change is applied immediately and the client has no knowledge of the
+          current configuration at the point in time that they commenced the editing activity nor
+          at the point they commit the activity.</t>
+        </section>
+        <section>
+          <name>Fine-grained locking</name>
+          <t><xref target="RFC5717"/> describes a partial lock mechanism that
+            can be used on specific portions of the shared candidate datastore.</t>
+          <t>Partial locking does not solve the issues of staging a set of
+             configuration changes such that only those changes get committed in a
+             commit operation, nor does it solve the issue of multiple clients
+             editing the same parts of the configuration at the same time.</t>
+          <t>Partial locking additionally requires that the client is aware of
+          any interdependencies within the servers YANG models in order to lock all
+          parts of the tree.</t>
+        </section>
+      </section>
+    </section>
+    <section>
+      <name>Private candidates solution</name>
+      <t>The use of private candidates resolves the issues
+        detailed earlier in this document.</t>
+      <t>NETCONF sessions and RESTCONF clients are able to utilize private candidates
+         to streamline network operations, particularly for
+         machine-to-machine communication.</t>
+      <t>Using this approach, clients may improve their performance and reduce the
+        likelihood of blocking other clients from continuing with valid operational
+        activities.</t>
+      <t>One or more private candidates may exist at any one time, however, a
+        private candidate SHOULD:</t>
+      <ul>
+        <li>Be accessible by one client only</li>
+        <li>Be visible by one client only</li>
+      </ul>
+      <t>Additionally, the choice of using a shared candidate configuration
+         datastore or a private candidate configuration datastore MUST be for
+         the entire duration of the NETCONF session.</t>
+      <section>
+        <name>What is a private candidate</name>
+        <t>A private candidate is defined earlier in the definitions and terminology
+          section of this document.</t>
+      </section>
+      <section anchor="section_when_created">
+        <name>When is a private candidate created</name>
+        <t>A private candidate datastore is created when the first RPC that requires access
+        to it is sent to the server.  This could be, for example, an &lt;edit-config&gt;.</t>
+        <t>When the private candidate is created a copy of the running configuration is
+        made and stored in it.  This can be considered the same as creating a branch in a
+        source code repository.</t>
+        <artwork>
+          +----------------------------&gt; private candidate
+         /
+        /
++------+-------------------------------&gt; running configuration
+       ^
+     Private candidate created
+        </artwork>
+      </section>
+      <section>
+        <name>When is a private candidate destroyed</name>
+        <t>A private candidate is valid for the duration of the NETCONF session,
+        or the duration of the existence of the RESTCONF client.  Issuing
+        a &lt;commit&gt; operation will not close the private candidate but will issue an
+        implicit &lt;update&gt; operation resyncing changes from the running configuration.
+        More details on this later in this document.</t>
+        <t>A NETCONF session that is operating using a private candidate will
+        discard all uncommitted changes in that session's private candidate and destroy
+        the private candidate if the session is closed through a deliberate user action or
+        disconnected for any other reason (such as a loss of network connectivity).</t> 
+      </section>
+      <section>
+        <name>How to signal the use of private candidates</name>
+        <section>
+          <name>Server</name>
+          <t>The server MUST signal its support for private candidates.  The server
+          does this by advertising a new :private-candidate capability:</t>
+          <sourcecode>
+urn:ietf:params:netconf:capability:private-candidate:1.0
+          </sourcecode>
+          <t>A server may also advertise the :candidate capability as defined in
+          <xref target="RFC6241"/> if the shared candidate is also supported.</t>
+          <t>A non-NMDA capable NETCONF server that advertises the :private-candidate
+          capability MUST also advertise the :candidate capability.</t>
+        </section>
+        <section>
+          <name>NETCONF client</name>
+          <t>In order to utilise a private candidate configuration within a NETCONF
+	    session, the client must inform the server that it wishes to do this.</t>
+          <t>Two approaches are available for a NETCONF client to signal that it wants
+            to use a private candidate:</t>
+          <section>
+            <name>Client capability declaration</name>
+            <t>When a NETCONF client connects with a server it sends a list of client
+            capabilities including one of the :base NETCONF version capabilties.</t>
+            <t>In order to enable private candidate mode for the duration of the NETCONF
+            client session the NETCONF client sends the following capability:</t>
+            <sourcecode>
+urn:ietf:params:netconf:capability:private-candidate:1.0
+            </sourcecode>
+            <t>In order for the use of private candidates to be established using this
+            approach both the NETCONF server and the NETCONF client MUST advertise 
+            this capability.</t>
+            <t>When a server receives the client capability its mode of operation
+             will be set to private candidate mode for the duration of the NETCONF
+             session.</t>
+            <t>All RPC requests that target the candidate configuration datastore
+            will operate in exactly the same way as they would do when using the
+            shared candidate configuration datastore, however, when the server
+            receives a request to act upon the candidate configuration datastore it
+            instead uses the session's private candidate configuration datastore.</t>
+            <t>Using this method, the use of private candidates can be made available 
+            to NMDA and non-NMDA capable servers.</t>
+            <t>No protocol extensions are required for the transitioning of candidates between
+            the shared mode and the private mode and no extensions are required for any
+            RPCs (including &lt;lock&gt;)</t>
+          </section>
+          <section>
+            <name>Private candidate datastore</name>
+            <t>The private candidate configuration datastore is exposed as its
+             own datastore similar to other <xref target="RFC8342">NMDA</xref>
+             capable datastores.  This datastore is called private-candidate.</t>
+<artwork><![CDATA[
+
++-------------+                 +-----------+       +---------------------+
+| <candidate> |                 | <startup> |       | <private-candidate> |-+
+|  (ct, rw)   |<---+       +--->| (ct, rw)  |    +->|     (ct, rw)        | |-+
++-------------+    |       |    +-----------+    |  +---------------------+ | |
+      |           |       |           |         |    +----------------------+ | 
+      |         +-----------+<--------+         |      +----------------------+  
+      +-------->| <running> |                   |            |  // multiple
+                | (ct, rw)  |-------------------+            |  // private-candidates
+                +-----------+<-------------------------------+  // possible
+                      |
+                      |        // configuration transformations,
+                      |        // e.g., removal of nodes marked as
+                      |        // "inactive", expansion of
+                      |        // templates
+                      v
+                +------------+
+                | <intended> | // subject to validation
+                | (ct, ro)   |
+                +------------+
+                      |        // changes applied, subject to
+                      |        // local factors, e.g., missing
+                      |        // resources, delays
+                      |
+  dynamic              |   +-------- learned configuration
+  configuration        |   +-------- system configuration
+  datastores -----+    |   +-------- default configuration
+                  |    |   |
+                  v    v   v
+              +---------------+
+              | <operational> | <-- system state
+              | (ct + cf, ro) |
+              +---------------+
+
+ct = config true; cf = config false
+rw = read-write; ro = read-only
+boxes denote named datastores
+
+
+]]>
+</artwork>
+
+            <t>All NMDA operations that support candidate NMDA datastore SHOULD
+            support the private-candidate datastore.</t>
+            <t>Any non-NMDA aware NETCONF operations that take a source or target
+             (destination) may be extended to accept the new datastore.</t>
+            <t>The ability for the server to support private candidates is optional
+            and SHOULD be signalled in NMDA supporting servers as a datastore in addition
+            to the server capabilities described earlier in this document.</t>
+            <t>To use this method the client is not required to send the
+            :private-candidate capability.</t>
+            <t>The first datastore referenced (either candidate or private-candidate) in
+             any NETCONF operation will define which mode that NETCONF session will
+             operate in for its duration.  As an example, performing a &lt;get-data&gt;
+             operation on the private-candidate datastore will switch the session into
+             private candidate configuration mode and subsequent &lt;edit-config&gt;
+             operations that reference the candidate configuration datastore MUST fail.</t>
+          </section>
+        </section>
+        <section>
+          <name>RESTCONF client</name>
+	  <t>RESTCONF doesn't provide a mechanism for the client to advertise a capability.
+    Therefore when a RESTCONF server advertises the :private-candidate capability, the
+    decision of whether to use a private candidate depends on whether a datastore is
+    explicitly referenced in the request using the RESTCONF extensions for NMDA
+	  <xref target="RFC8527"/>.</t>
+      <section>
+        <name>Datastore is not explicitly referenced</name>
+	    <t>When the server advertises the :private-candidate capability and the client
+         references the "{+restconf}/data" resource described in
+         <xref target="RFC8040" sectionFormat="of" section="3.3.1" />,
+         all edits are made to the client's private candidate, and the private candidate
+         is automatically committed.</t>
+        <t>This ensures backwards compatibility with RESTCONF clients that are not aware of
+         private candidates, because those clients will expect their changes to be
+         committed immediately.</t>
+      </section>
+      <section>
+        <name>Private candidate datastore is referenced in the request</name>
+	    <t>When the private-candidate datastore is explicitly referenced as an NMDA datastore,
+         edits are made to the client's private candidate, but the private candidate is not
+         committed.  To commit the changes, the client must explicitly send a commit request.</t>
+        <t>A commit request is of the form "{+restconf}/operations/ietf-netconf:commit",
+         using the API described in <xref target="RFC8040" sectionFormat="of" section="3.3.2" />.
+         The semantics are identical to the NETCONF &lt;commit&gt; operation.</t>
+        <t>Similarly, the client can perform ietf-netconf:discard-changes,
+         ietf-netconf:validate, and ietf-netconf:cancel-commit operations (if the appropriate
+         capabilities are implemented).  The semantics are identical to NETCONF.</t>
+      </section>
+      <section>
+        <name>Identifying the private candidate datastore</name>
+        <t>Each RESTCONF client has its own private candidate datastore.  The client
+         (and hence the private candidate datastore) is identified using the mechanism
+         described in <xref target="RFC8040" sectionFormat="of" section="2.5" />.</t>
+      </section>
+	</section>
+      </section>
+      <section>
+        <name>Interaction between running and private-candidate(s)</name>
+        <t>Multiple operations may be performed on the private candidate in order
+        to stage changes ready for a commit.</t>
+        <t>In the simplest example, a session may create a private candidate configuration,
+        perform multiple operations (such as &lt;edit-config&gt;) on it and then
+        perform a &lt;commit&gt; operation to merge the private candidate configuration
+        into the running configuration in line with semantics in <xref target="RFC6241"/>.
+        </t>
+        <artwork>
+                               commit
+       +--------------------------+--------&gt; private candidate
+      /   ^             ^          \
+     /   edit-config   edit-config  ⌄
++---+-------------------------------+------&gt; running configuration
+    ^
+  edit-config
+  (Private candidate created)
+
+        </artwork>
+        <t>More complex scenarios need to be considered, when multiple private candidate
+        sessions are working on their own configuration (branches) and they make commits
+        into the running configuration.</t>
+        <artwork>
+                           commit
+       +---------------------+----------------&gt; private candidate 1
+      /                       \ 
+     /         edit-config     ⌄
++---+------------+-------------+--------------&gt; running configuration
+  edit-config     \
+                   \
+                    +-------------------------&gt; private candidate 2
+
+        </artwork>
+        <t>In this situation, if, how and when private candidate 2 is updated with the
+        information that the running configuration has changed must be considered.</t>
+        <t>As described earlier, the client MUST be aware of changes to it's private candidate 
+        configuration so it can be assured that it is only committing its own modifications. 
+        It should also be aware of any changes to the current running configuration.</t>
+        <t>It is possible, during an update, for conflicts to occur and the detection and 
+        resolution of these is discussed later in this document.</t>
+        <t>A good way to understand the interaction between candidates is to consider them as 
+        branches such as you might find in a source code management system.</t>
+        <t>Each private candidate is treated as a separate branch and changes made to the 
+        running configuration are not placed into a private candidate datastore except in one 
+        of the following situations:</t>
+        <ul>
+        <li>The client requests that the private candidate be refreshed using a new &lt;update&gt;
+        operation</li>
+        <li>&lt;commit&gt; is issued (which MUST automatically issue an &lt;update&gt; operation 
+        immediately prior to committing the configuration)</li>
+        <li>An implmentation chooses to perform an &lt;update&gt; operation after a change to
+        the running configuration by any other client</li>
+        </ul>
+        <t>It is possible for a private candidate configuration to become significantly out of 
+        sync with the running configuration should the private candidate be open for a long time,
+        however, most NETCONF configuration activities (between the first 
+        &lt;edit-config&gt;/&lt;edit-data&gt; and a &lt;commit&gt;) are short-lived.</t>
+        <t>An implementation may choose, optionally, to automatically perform an &lt;update&gt; 
+        operation after a change to the running configuration from another client.  However, this
+        choice should be made with caution as it will replace, overwrite, or otherwise alter 
+        (depending on the servers default resolution mode, discussed later) the private candidate
+        configuration without notifying the client.</t>
+        <t>A &lt;compare&gt; operation MAY be performed against:</t>
+        <ul>
+        <li>The initial creation point of the private candidate's branch</li>
+        <li>Against the last update point of the private candidate's branch</li>
+        <li>Against the running configuration</li>
+        </ul>
+      </section>
+      <section>
+        <name>Detecting and resolving conflicts</name>
+        <section>
+          <name>What is a conflict?</name>
+          <t>A conflict is when the intent of the client may have
+            been different had it had a different starting point.  In configuration
+            terms, a conflict occurs when the same set of nodes in a configuration being
+            altered by one user are changed between the start of the configuration
+            preparation (the first &lt;edit-config&gt;/&lt;edit-data&gt; operation)
+            and the conclusion of this configuration activity (terminated by a
+            &lt;commit&gt; operation).</t>
+          <t>The situation where conflicts have the potential of occurring are when
+              multiple configuration sessions are in progress and one session commits
+              changes into the running configuration after the private candidate
+              (branch) was created. </t>
+          <t>When this happens a conflict occurs for each node modified in the running
+              configuration that is also modified in the private candidate
+              configuration.</t>
+          <t>A node is considered modified if:</t>
+          <ul>
+          <li>There is a change of any value</li>
+          <li>There is a change of existence (or otherwise) of any list entry</li>
+          <li>There is a change to the order of any list items in a list configured as
+              "ordered-by user"</li>
+          <li>There is a change of existence (or otherwise) of a presence container</li>
+          <li>There is a change of any component member of a leaf-list</li>
+          <li>There is a change to the order of any items in a leaf-list configured as
+              "ordered-by user"</li>
+          <li>There is a change of existance (or otherwise) of a leaf with an Empty type
+          definition</li>
+          <li>There is a change to any YANG metadata associated with the node</li>
+          </ul>
+          <t>A server MAY choose to add additional checks over and above the above
+          list.</t>
+          <t>If a server implements the transaction ID feature then this MAY be considered
+          as part of detecting a conflict.</t>
+          <t>When a conflict is identified that node is marked by the server as "in conflict"
+          in the private candidate.  This "in conflict" status does not propagate back up 
+          the tree to the parent node(s).  Each node in the ancestral tree is evaluated 
+          as in conflict or otherwise on its own merits.  The "in conflict" marker 
+          remains until the conflict is resolved on that node.</t>
+          <t>Examples of conflicts include:</t>
+          <ul>
+            <li>An interface has been deleted in the running configuration that existed
+              when the private candidate was created.  A change to a child node of this specific
+                interface is made in the private candidate using the default merge operation
+                would, instead of changing the child node, both recreate the interface and then
+                set the child node.</li>
+            <li>A leaf has been modified in the running configuration from the value that
+              it had when the private candidate was created.  The private candidate configuration
+              changes that leaf to another value.</li>
+          </ul>
+        </section>
+        <section>
+          <name>Detecting and reporting conflicts</name>
+          <t>A conflict can occur when an &lt;update&gt; operation is triggered.  This
+            can occur in a number of ways:</t>
+          <ul>
+            <li>Manually triggered by the &lt;update&gt; NETCONF operation</li>
+            <li>Automatically triggered by the server running an &lt;update&gt;
+              operation, such as when a &lt;commit&gt; operation is performed by the 
+              client in the private candidate session.</li>
+          </ul>
+          <t>When a conflict occurs:</t>
+          <ul>
+          <li>The client MUST be given the opportunity to re-evaluate its intent based 
+          on the new information.  The resolution of the conflict may be manual or 
+          automatic depending on the server and client decision (discussed later in 
+          this document).</li>
+          <li>A &lt;commit&gt; operation (that MUST trigger an automatic &lt;update&gt; 
+          operation immediately before) MUST fail. It MUST inform the client of the 
+          conflict and SHOULD detail the location of the conflict(s).</li>
+          <li>A &lt;update&gt; operation MUST fail unless the server has explicitly 
+          configured a system-wide default resolution mode of ignore or overwrite
+          (discussed later in this document)</li>
+          </ul>
+          <t>The location of the conflict(s) should be reported as a list of
+          xpaths and values.</t>
+          <t>Note: If a server implementation has chosen to automatically issue an
+          &lt;update&gt; operation every time a change is made to the running configuration,
+          the server will use the system-wide default resolution mode.  If this resolution
+          mode is ignore or overwrite the conflicts will be resolved using those rules. If
+          the resolution mode is set to revert-on-conflict the semantics are the same as
+          the ignore method, however, all changes, whether in conflict or otherwise will
+          be marked in the private candidate as "in-conflict".  This means that any subsequent
+          &lt;commit&gt; will fail until the client makes a conscious choice to resolve them.</t>
+        </section>
+        <section>
+          <name>Conflict resolution</name>
+          <t>Conflict resolution defines which configuration elements are retained 
+          when a conflict is resolved; those from the running configuration or 
+          those from the private candidate configuration.</t>
+          <t>When a conflict is detected in any client-triggered activity, the client 
+          MUST be informed.  The client then has a number of options available to 
+          resolve the conflict.</t>
+          <t>An &lt;update&gt; operation uses the resolution method specified in the
+          request, or the system default resolution mode if not specified.  The &lt;update&gt;
+          operation is discussed later in this document.</t>
+          <t>The following configuration data is used below to illustrate the behaviour
+          of each resolution method:</t>
+          <sourcecode type="xml">
+&lt;configure&gt;
+  &lt;interfaces&gt;
+    &lt;interface&gt;
+      &lt;name&gt;intf_one&lt;/name&gt;
+      &lt;description&gt;Link to London&lt;description&gt;
+    &lt;/interface&gt;
+    &lt;interface&gt;
+      &lt;name&gt;intf_two&lt;/name&gt;
+      &lt;description&gt;Link to Tokyo&lt;description&gt;
+    &lt;/interface&gt;
+  &lt;/interfaces&gt;
+&lt;/configure&gt;
+          </sourcecode>
+          <t>The example workflow is shown in this diagram and is used for the purpose 
+          of the examples below.  In these examples the reader should assume that the
+          &lt;update&gt; operation is manually provided by a client working in 
+          private candidate 1.</t>
+          <artwork>
+                        update commit
+       +--------------------+---+------&gt; private candidate 1
+      /                     ^    \
+     /  edit-config        /      ⌄
++---+--------+--------+---+-------+----&gt; running configuration
+ edit-config  \       ^
+               \     /
+                +---+------------------&gt; private candidate 2
+                 commit
+          </artwork>
+          <t>There are three defined resolution methods:</t>
+          <section>
+            <name>Ignore</name>
+            <t>Reminder: The starting configuration and workflow used to illustrate this
+            resolution method is detailed in the parent chapter of this document.</t>
+            <t>When using the ignore resolution method, items in the running
+            configuration that are not in conflict with the private candidate
+            configuration are merged from the running configuration
+            into the private candidate configuration.  Nodes that are in conflict
+            are ignored and not merged.  The outcome of this is that the private
+            candidate configuration reflects changes in the running that were not
+            being worked on and those that are being worked on in the private
+            candidate remain in the private candidate.  Issuing a &lt;commit&gt;
+            operation at this point will overwrite the running configuration with
+            the conflicted items from the private candidate configuration.</t>
+            <t>Example:</t>
+            <t>Session 1 edits the configuration by submitting the following</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="config"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;edit-config&gt;
+    &lt;target&gt;&lt;candidate/&gt;&lt;target&gt;
+    &lt;config&gt;
+      &lt;configure&gt;
+        &lt;interfaces&gt;
+          &lt;interface&gt;
+            &lt;name&gt;intf_one&lt;/name&gt;
+            &lt;description&gt;Link to San Francisco&lt;description&gt;
+          &lt;/interface&gt;
+        &lt;/interfaces&gt;
+      &lt;/configure&gt;
+    &lt;/config&gt;
+  &lt;/edit-config&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>Session 2 then edits the configuration deleting the
+            interface intf_one, updating the description on interface
+            intf_two and commits the configuration to the running
+            configuration datastore.</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="config"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;edit-config&gt;
+    &lt;target&gt;&lt;candidate/&gt;&lt;target&gt;
+    &lt;config&gt;
+      &lt;configure&gt;
+        &lt;interfaces&gt;
+          &lt;interface&gt;
+            &lt;name operation="delete"&gt;intf_one&lt;/name&gt;
+          &lt;/interface&gt;
+          &lt;interface&gt;
+            &lt;name&gt;intf_two&lt;/name&gt;
+            &lt;description&gt;Link moved to Paris&lt;/description&gt;
+          &lt;/interface&gt;
+        &lt;/interfaces&gt;
+      &lt;/configure&gt;
+    &lt;/config&gt;
+  &lt;/edit-config&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>Session 1 then sends an &lt;update&gt; NETCONF operation.</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="update"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;update&gt;
+    &lt;resolution-mode&gt;ignore&lt;/resolution-mode&gt;
+  &lt;/update&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>The un-conflicting changes are merged and the conflicting
+            ones are ignored (and not merged from the running into
+            private candidate 1).</t>
+            <t>The resulting data in private candidate 1 is:</t>
+            <sourcecode type="xml">
+&lt;configure&gt;
+  &lt;interfaces&gt;
+    &lt;interface&gt;
+      &lt;name&gt;intf_one&lt;/name&gt;
+      &lt;description&gt;Link to San Francisco&lt;description&gt;
+    &lt;/interface&gt;
+    &lt;interface&gt;
+      &lt;name&gt;intf_two&lt;/name&gt;
+      &lt;description&gt;Link moved to Paris&lt;description&gt;
+    &lt;/interface&gt;
+  &lt;/interfaces&gt;
+&lt;/configure&gt;
+            </sourcecode>
+          </section>
+          <section>
+            <name>Overwrite</name>
+            <t>Reminder: The starting configuration and workflow used to illustrate this
+            resolution method is detailed in the parent chapter of this document.</t>
+            <t>When using the overwrite resolution method, items in the running
+            configuration that are not in conflict with the private candidate
+            configuration are merged from the running configuration into the
+            private candidate configuration.  Nodes that are in conflict are
+            pushed from the running configuration into the private candidate
+            configuration, overwriting any previous changes in the private
+            candidate configuration.  The outcome of this is that the private
+            candidate configuration reflects the changes in the running
+            configuration that were not being worked on as well as changing
+            those being worked on in the private candidate to new values.</t>
+            <t>Example:</t>
+            <t>Session 1 edits the configuration by submitting the following</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="config"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;edit-config&gt;
+    &lt;target&gt;&lt;candidate/&gt;&lt;target&gt;
+    &lt;config&gt;
+      &lt;configure&gt;
+        &lt;interfaces&gt;
+          &lt;interface&gt;
+            &lt;name&gt;intf_one&lt;/name&gt;
+            &lt;description&gt;Link to San Francisco&lt;description&gt;
+          &lt;/interface&gt;
+        &lt;/interfaces&gt;
+      &lt;/configure&gt;
+    &lt;/config&gt;
+  &lt;/edit-config&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>Session 2 then edits the configuration deleting the
+            interface intf_one, updating the description on interface
+            intf_two and commits the configuration to the running
+            configuration datastore.</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="config"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;edit-config&gt;
+    &lt;target&gt;&lt;candidate/&gt;&lt;target&gt;
+    &lt;config&gt;
+      &lt;configure&gt;
+        &lt;interfaces&gt;
+          &lt;interface&gt;
+            &lt;name operation="delete"&gt;intf_one&lt;/name&gt;
+          &lt;/interface&gt;
+          &lt;interface&gt;
+            &lt;name&gt;intf_two&lt;/name&gt;
+            &lt;description&gt;Link moved to Paris&lt;/description&gt;
+          &lt;/interface&gt;
+        &lt;/interfaces&gt;
+      &lt;/configure&gt;
+    &lt;/config&gt;
+  &lt;/edit-config&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>Session 1 then sends an &lt;update&gt; NETCONF operation.</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="update"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;update&gt;
+    &lt;resolution-mode&gt;overwrite&lt;/resolution-mode&gt;
+  &lt;/update&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>The un-conflicting changes are merged and the conflicting
+            ones are pushed into the private candidate 1 overwriting the
+            existing changes.</t>
+            <t>The resulting data in private candidate 1 is:</t>
+            <sourcecode type="xml">
+&lt;configure&gt;
+  &lt;interfaces&gt;
+    &lt;interface&gt;
+      &lt;name&gt;intf_two&lt;/name&gt;
+      &lt;description&gt;Link moved to Paris&lt;description&gt;
+    &lt;/interface&gt;
+  &lt;/interfaces&gt;
+&lt;/configure&gt;
+            </sourcecode>
+          </section>
+          <section>
+            <name>Revert-on-conflict</name>
+            <t>Reminder: The starting configuration and workflow used to illustrate this
+            resolution method is detailed in the parent chapter of this document.</t>
+            <t>When using the revert-on-conflict resolution method, an update
+            will fail to complete when any conflicting node is found.  The
+            session issuing the update will be informed of the failure.</t>
+            <t>No changes, whether conflicting or un-conflicting are merged into
+            the private candidate configuration.</t>
+            <t>The owner of the private candidate session must then take deliberate
+            and specific action to adjust the private candidate configuration to
+            rectify the conflict.  This may be by issuing further &lt;edit-config&gt;
+            or &lt;edit-data&gt; operations, by issuing a &lt;discard-changes&gt;
+            operation or by issuing an &lt;update&gt; operation with a
+            different resolution method.</t>
+            <t>This resolution method is the default resolution method as it
+            provides for the highest level of visibility and control to ensure
+            operational stability.</t>
+            <t>This resolution method MUST be supported by a server.</t>
+            <t>Example:</t>
+            <t>Session 1 edits the configuration by submitting the following:</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="config"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;edit-config&gt;
+    &lt;target&gt;&lt;candidate/&gt;&lt;target&gt;
+    &lt;config&gt;
+      &lt;configure&gt;
+        &lt;interfaces&gt;
+          &lt;interface&gt;
+            &lt;name&gt;intf_one&lt;/name&gt;
+            &lt;description&gt;Link to San Francisco&lt;description&gt;
+          &lt;/interface&gt;
+        &lt;/interfaces&gt;
+      &lt;/configure&gt;
+    &lt;/config&gt;
+  &lt;/edit-config&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>Session 2 then edits the configuration deleting the
+            interface intf_one, updating the description on interface
+            intf_two and commits the configuration to the running
+            configuration datastore.</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="config"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;edit-config&gt;
+    &lt;target&gt;&lt;candidate/&gt;&lt;target&gt;
+    &lt;config&gt;
+      &lt;configure&gt;
+        &lt;interfaces&gt;
+          &lt;interface&gt;
+            &lt;name operation="delete"&gt;intf_one&lt;/name&gt;
+          &lt;/interface&gt;
+          &lt;interface&gt;
+            &lt;name&gt;intf_two&lt;/name&gt;
+            &lt;description&gt;Link moved to Paris&lt;/description&gt;
+          &lt;/interface&gt;
+        &lt;/interfaces&gt;
+      &lt;/configure&gt;
+    &lt;/config&gt;
+  &lt;/edit-config&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>Session 1 then sends an &lt;update&gt; NETCONF operation.</t>
+            <sourcecode type="xml">
+&lt;rpc message-id="update"
+        xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;update&gt;
+    &lt;resolution-mode&gt;revert-on-conflict&lt;/resolution-mode&gt;
+  &lt;/update&gt;
+&lt;/rpc&gt;
+            </sourcecode>
+            <t>A conflict is detected, the update fails with an &lt;rpc-error&gt;
+            and no merges/overwrite operations happen.</t>
+            <t>The resulting data in private candidate 1 is:</t>
+            <sourcecode type="xml">
+&lt;configure&gt;
+  &lt;interfaces&gt;
+    &lt;interface&gt;
+      &lt;name&gt;intf_one&lt;/name&gt;
+      &lt;description&gt;Link to San Francisco&lt;description&gt;
+    &lt;/interface&gt;
+    &lt;interface&gt;
+      &lt;name&gt;intf_two&lt;/name&gt;
+      &lt;description&gt;Link to Tokyo&lt;description&gt;
+    &lt;/interface&gt;
+  &lt;/interfaces&gt;
+&lt;/configure&gt;
+            </sourcecode>
+          </section>
+        </section>
+        <section>
+          <name>Default resolution mode and advertisement of this mode</name>
+          <t>The default resolution mode is revert-on-conflict.  However, a system MAY
+          choose to select a different default resolution mode.</t>
+          <t>The default resolution mode MUST be advertised in the :private-candidate
+          capability by adding the default-resolution-mode parameter if the system default
+          is anything other than revert-on-conflict.  If the system default resolution
+          mode is revert-on-conflict then advertising this in the :private-candidate
+          capability is optional.</t>
+          <t>In this example, a server has configured a default system-wide resolution mode
+          of overwrite which MUST be signalled with the :private-candidate capability as 
+          follows:</t>
+          <sourcecode>
+urn:ietf:params:netconf:capability:private-candidate:1.0
+              ?default-resolution-mode=overwrite
+          </sourcecode>
+        </section>
+        <section>
+          <name>Supported resolution modes</name>
+          <t>A server SHOULD support all three resolution modes.  However, if the server
+          does not support all three modes, the server MUST report the supported modes 
+          in the :private-candidate capability using the supported-resolution-modes, 
+          for example:</t>
+          <sourcecode>
+urn:ietf:params:netconf:capability:private-candidate:1.0
+              ?supported-resolution-modes=revert-on-conflict,ignore
+          </sourcecode>
+        </section>
+      </section>
+      <section>
+        <name>NETCONF operations</name>
+        <section>
+          <name>New NETCONF operations</name>
+          <section>
+            <name>&lt;update&gt;</name>
+            <t>The &lt;update&gt; operation is provided to allow NETCONF clients
+                (or servers) to trigger a rebase of the private candidate configuration
+                    against the running configuration.</t>
+            <t>The &lt;update&gt; operation may be triggered manually by the
+                client or automatically by the server.</t>
+            <t>The &lt;update&gt; operation is atomic.  This means that the entire &lt;update&gt;
+            operation succeeeds or the entire &lt;update&gt; operation MUST fail.</t>
+            <t>The &lt;update&gt; operation MUST be implicitly triggered by a specific 
+            NETCONF session issuing a &lt;commit&gt; operation when using private
+            candidates.  The actual order of operations in the server MUST be to issue 
+            the implicit &lt;update&gt; operation first and then the &lt;commit&gt; 
+            operation.</t>
+            <t>A &lt;commit&gt; operation that fails the implicit &lt;update&gt; operation
+            SHOULD fail.  The client is then required to make a specific decision to rectify
+            the issue prior to committing.  This may be to edit the private candidate 
+            configuration or to issue a manual &lt;update&gt; operation with a specific
+            resolution mode selected.</t>
+            <section>
+              <name>&lt;resolution-mode&gt; parameter</name>
+              <t>The &lt;update&gt; operation takes the optional 
+                        &lt;resolution-mode&gt; parameter</t>
+              <t>The resolution modes are described earlier in this document
+                    and the accepted inputs are:</t>
+              <ul>
+                <li>revert-on-conflict (default)</li>
+                <li>ignore</li>
+                <li>overwrite</li>
+              </ul>
+            </section>
+          </section>
+        </section>
+        <section>
+          <name>Updated NETCONF operations</name>
+          <t>Specific NETCONF operations altered by this document are listed in this section.
+            Any notable behaviour with existing unaltered NETCONF operations is noted in the
+            appendix.</t>
+          <section>
+            <name>&lt;edit-config&gt;</name>
+            <t>The &lt;edit-config&gt; operation is updated to accept
+                    private-candidate as valid input to the &lt;target&gt; field.</t>
+            <t>The use of &lt;edit-config&gt; will create a private candidate
+                  configuration if one does not already exist for that NETCONF
+                  session.</t>
+            <t>Sending an &lt;edit-config&gt; request to private-candidate
+                  after one has been sent to the shared candidate datastore
+                  in the same session will fail (and visa-versa).</t>
+            <t>Multiple &lt;edit-config&gt; requests may be sent to the
+                  private-candidate datastore in a single session.</t>
+          </section>
+          <section>
+            <name>&lt;edit-data&gt;</name>
+            <t>The &lt;edit-data&gt; operation is updated to accept
+                    private-candidate as valid input to the &lt;datastore&gt; field.
+                    (datastore is an identityref and so the actual input will be 
+                    ds:private-candidate).</t>
+            <t>The use of &lt;edit-data&gt; will create a private candidate
+                  configuration if one does not already exist for that NETCONF
+                  session.</t>
+            <t>Multiple &lt;edit-data&gt; requests may be sent to the
+                  private-candidate datastore in a single session.</t>
+          </section>
+          <section>
+            <name>&lt;lock&gt; and &lt;unlock&gt;</name>
+            <t>Performing a &lt;lock&gt; on the private-candidate datastore is a valid operation, although
+            the practical effect of this is a 'no op' as only one session may edit
+            the locked private candidate.</t>
+            <t>If the client's intention is that no other session may commit changes to the system then
+            the client should issue a &lt;lock&gt; operation on the running datastore.</t>
+            <t>Other NETCONF sessions are still able to create a new private-candidate
+                configurations, make edits to them and perform operations on them, such as 
+                &lt;update&gt; or &lt;discard-changes&gt;.</t>
+            <t>Performing an &lt;unlock&gt; on the private-candidate datastore is a valid operation.</t>
+            <t>Changes in the private-candidate datastore are not lost when the lock is released.</t>
+          </section>
+          <section>
+            <name>&lt;compare&gt;</name>
+            <t>Performing a <xref target="RFC9144">&lt;compare&gt;</xref> operation 
+                with the private-candidate datastore as either the &lt;source&gt;
+                or &lt;target&gt; is a valid operation.</t>
+            <t>If &lt;compare&gt; is performed prior to a private candidate configuration
+              being created, one will be created at that point.</t>
+            <t>The &lt;compare&gt; operation is extended by this document to allow the ability to
+            compare the private-candidate datastore (at its current point in time) with the
+            same private-candidate datastore at an earlier point in time or with another datastore.</t>
+            <section>
+            <name>&lt;reference-point&gt; parameter</name>
+            <t>This document adds the optional &lt;reference-point&gt; node to the input of 
+            the &lt;compare&gt; operation that accepts the following values:</t>
+            <ul>
+            <li>last-update</li>
+            <li>creation-point</li>
+            </ul>
+            <t>Servers MAY support this functionality but are not required to by this document.</t>
+            <t>The last-update selection of &lt;reference-point&gt; will provide an output
+            comparing the current private-candidate configuration datastore with the same
+            private-candidate datastore at the time it was last updated using the &lt;update&gt; 
+            NETCONF operation described in this document (whether automatically or manually triggered).</t>
+            <t>The creation-point selection of &lt;reference-point&gt; will provide an output
+            comparing the current private-candidate configuration datastore with the same
+            private-candidate datastore at the time this private-candidate was initially created.</t>
+          </section>
+          </section>
+          <section>
+            <name>&lt;get-config&gt;</name>
+            <t>The &lt;get-config&gt; operation is updated to accept private-candidate as
+              valid input to the &lt;source&gt; field.</t>
+            <t>The use of &lt;get-config&gt; will create a private candidate configuration
+              if one does not already exist for that NETCONF session.</t>
+            <t>Sending an &lt;get-config&gt; request to private-candidate
+                  after one has been sent to the shared candidate datastore
+                  in the same session will fail (and visa-versa).</t>
+          </section>
+          <section>
+            <name>&lt;get-data&gt;</name>
+            <t>The &lt;get-data&gt; operation accepts the private-candidate as a valid datastore.</t>
+            <t>The use of &lt;get-data&gt; will create a private candidate configuration
+              if one does not already exist for that NETCONF session.</t>
+            <t>Sending an &lt;get-data&gt; request to private-candidate
+                  after one has been sent to the shared candidate datastore
+                  in the same session will fail (and visa-versa).</t>
+          </section>
+          <section>
+            <name>&lt;copy-config&gt;</name>
+            <t>The &lt;copy-config&gt; operation is updated to accept private-candidate as
+          a valid input to the &lt;source&gt; or &lt;target&gt; fields.</t>
+          </section>
+          <section>
+            <name>&lt;validate&gt;</name>
+            <t>The &lt;validate&gt; operation is updated to accept private-candidate as
+              valid input to the &lt;source&gt; field.</t>
+          </section>
+          <section>
+            <name>&lt;delete-config&gt;</name>
+            <t>The &lt;delete-config&gt; operation is updated to accept private-candidate as
+          a valid input to the &lt;target&gt; field.</t>
+          <t>Deleting the private candidate will destroy the private candidate for the client.
+          A new one will subsequently be created on first access as described in
+          <xref target="section_when_created" />.</t>
+          </section>
+          <section>
+            <name>&lt;discard-changes&gt;</name>
+            <t>The &lt;discard-changes&gt; operation is updated to accept private-candidate
+            as a valid input to the newly added &lt;target&gt; field.</t>
+            <t>Discarding the change to the private candidate will reset it to the state it
+            was when it was initially created, or to the state following the latest &lt;update&gt;
+            operation, whichever is most recent.  This state may not match the current 
+            running configuration.</t>
+            <t>To align the private candidate with the running configuration the &lt;update&gt;
+            or &lt;delete-config&gt; operations may be used.</t>
+            <t>If the &lt;target&gt; field is not provided with the &lt;private-candidate/&gt;
+            parameter then the behaviour from <xref target="RFC6241"/> remains and the shared candidate changes
+            are discarded.</t>
+          </section>
+          <section>
+            <name>&lt;commit&gt;</name>
+            <t>The &lt;commit&gt; operation MUST trigger an implicit &lt;update&gt; operation
+            immediately before copying the private candidate configuration into the running
+            configuration.</t>
+            <section>
+              <name>Interactions with commit confirmed operations and private candidates</name>
+              <t>Nothing in this document alters the behaviour of the &lt;confirmed&gt;, 
+              &lt;persist&gt; or &lt;persist-id&gt; parameters and these MUST work when using the 
+              private-candidate configuration datastore if the :confirmed-commit capability is 
+              advertised.</t>
+              <t>When a private candidate is committed using the &lt;confirmed/&gt; parameter and
+              the commit operation disconnects the client's session, the configuration in the 
+              running configuration is immediately reverted and the proposed client changes 
+              are discarded.</t>
+              <t>When a private candidate is committed using the &lt;confirmed/&gt; parameter and
+              the commit operation does not disconnect the client's session, and subsequently, the 
+              commit operation is either cancelled using the &lt;cancel-commit&gt; operation or 
+              the timeout expires, the running configuration is reverted and the proposed 
+              client changes are returned to the client's private candidate.</t>
+              <t>If a private candidate is committed using the &lt;confirmed/&gt; parameter 
+              and the &lt;persist&gt; parameter is provided, and the client subsequently 
+              disconnects its session for any reason whilst the timer is running, upon 
+              cancellation using the &lt;cancel-commit&gt; operation or on the expiry of 
+              the timer, the running configuration will be reverted, and the proposed client 
+              changes are discarded.</t>
+            </section>
+          </section>
+        </section>
+      </section>
+    </section>
+    <section anchor="IANA">
+      <!-- All drafts are required to have an IANA considerations section. See RFC 8126 for a guide.-->
+      <name>IANA Considerations</name>
+      <t>This document requests the registration the the following NETCONF capabilities:</t>
+      <ul><li>urn:ietf:params:netconf:capability:private-candidate:1.0 (Version 1.0)</li></ul>
+    </section>
+    <section anchor="Security">
+      <!-- All drafts are required to have a security considerations section. See RFC 3552 for a guide. -->
+      <name>Security Considerations</name>
+      <t>This document should not affect the security of the Internet.</t>
+    </section>
+    <!-- NOTE: The Acknowledgements and Contributors sections are at the end of this template -->
+  </middle>
+  <back>
+    <references>
+      <name>References</name>
+      <references>
+        <name>Normative References</name>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.2119.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8174.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.6241.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8342.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.9144.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.5717.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8040.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8527.xml"/>
+        <!-- The recommended and simplest way to include a well known reference -->
+      </references>
+      <references>
+        <name>Informative References</name>
+      </references>
+    </references>
+    <section>
+      <name>Behaviour with unaltered NETCONF operations</name>
+      <section>
+        <name>&lt;get&gt;</name>
+        <t>The &lt;get&gt; operation does not accept a datastore value and therefore
+          this document is not applicable to this operation.  The use of the
+          get operation will not create a private candidate configuration.</t>
+      </section>
+      <section>
+            <name>&lt;cancel-commit&gt;</name>
+            <t>The &lt;cancel-commit&gt; operation is unchanged.  Any changes made to the running
+            configuration are returned to the private candidate if it still exists.</t>
+      </section>
+    </section>
+    
+    <section>
+      <name>YANG modules</name>
+      <section>
+        <name>ietf-netconf@2024-04-16.yang</name>
+        <sourcecode type="yang" markers="true" name="ietf-netconf@2024-04-16.yang">
+<![CDATA[
+module ietf-netconf {
+
+  // the namespace for NETCONF XML definitions is unchanged
+  // from RFC 4741, which this document replaces
+
+  namespace "urn:ietf:params:xml:ns:netconf:base:1.0";
+  prefix nc;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  organization
+    "IETF NETCONF (Network Configuration) Working Group";
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/netconf/>
+     WG List:  <netconf@ietf.org>
+
+     WG Chair: Bert Wijnen
+               <bertietf@bwijnen.net>
+
+     WG Chair: Mehmet Ersue
+               <mehmet.ersue@nsn.com>
+
+     Editor:   Martin Bjorklund
+               <mbj@tail-f.com>
+
+     Editor:   Juergen Schoenwaelder
+               <j.schoenwaelder@jacobs-university.de>
+
+     Editor:   Andy Bierman
+               <andy.bierman@brocade.com>
+
+     Editor:   James Cumming
+               <james.cumming@nokia.com>
+
+     Editor:   Robert Wills
+               <rowills@cisco.com>";
+  description
+    "NETCONF Protocol Data Types and Protocol Operations.
+
+     Copyright (c) 2024 IETF Trust and the persons identified as
+     authors of the code. All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject
+     to the license terms contained in, the Revised BSD License
+     set forth in Section 4.c of the IETF Trust’s Legal Provisions
+     Relating to IETF Documents
+     (https://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC 6241 and
+     draft-ietf-netconf-privcand; see these documents for full
+     legal notices.";
+
+  revision 2024-04-16 {
+    description
+      "Updated to introduce private candidates";
+    reference
+      "draft-ietf-netconf-privcand: Netconf Private Candidates";
+  }
+  revision 2011-06-01 {
+    description
+      "Initial revision";
+    reference
+      "RFC 6241: Network Configuration Protocol";
+  }
+
+  extension get-filter-element-attributes {
+    description
+      "If this extension is present within an 'anyxml'
+       statement named 'filter', which must be conceptually
+       defined within the RPC input section for the <get>
+       and <get-config> protocol operations, then the
+       following unqualified XML attribute is supported
+       within the <filter> element, within a <get> or
+       <get-config> protocol operation:
+
+         type : optional attribute with allowed
+                value strings 'subtree' and 'xpath'.
+                If missing, the default value is 'subtree'.
+
+       If the 'xpath' feature is supported, then the
+       following unqualified XML attribute is
+       also supported:
+
+         select: optional attribute containing a
+                 string representing an XPath expression.
+                 The 'type' attribute must be equal to 'xpath'
+                 if this attribute is present.";
+  }
+
+  // NETCONF capabilities defined as features
+
+  feature writable-running {
+    description
+      "NETCONF :writable-running capability;
+       If the server advertises the :writable-running
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "RFC 6241, Section 8.2";
+  }
+
+  feature candidate {
+    description
+      "NETCONF :candidate capability;
+       If the server advertises the :candidate
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "RFC 6241, Section 8.3";
+  }
+
+  feature private-candidate {
+    description
+      "NETCONF :private-candidate capability;
+       If the server advertises the :private-candidate
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "draft-ietf-netconf-privcand";
+  }
+
+  feature confirmed-commit {
+    if-feature "candidate";
+    description
+      "NETCONF :confirmed-commit:1.1 capability;
+       If the server advertises the :confirmed-commit:1.1
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "RFC 6241, Section 8.4";
+  }
+
+  feature rollback-on-error {
+    description
+      "NETCONF :rollback-on-error capability;
+       If the server advertises the :rollback-on-error
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "RFC 6241, Section 8.5";
+  }
+
+  feature validate {
+    description
+      "NETCONF :validate:1.1 capability;
+       If the server advertises the :validate:1.1
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "RFC 6241, Section 8.6";
+  }
+
+  feature startup {
+    description
+      "NETCONF :startup capability;
+       If the server advertises the :startup
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "RFC 6241, Section 8.7";
+  }
+
+  feature url {
+    description
+      "NETCONF :url capability;
+       If the server advertises the :url
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "RFC 6241, Section 8.8";
+  }
+
+  feature xpath {
+    description
+      "NETCONF :xpath capability;
+       If the server advertises the :xpath
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "RFC 6241, Section 8.9";
+  }
+
+  // NETCONF Simple Types
+
+  typedef session-id-type {
+    type uint32 {
+      range "1..max";
+    }
+    description
+      "NETCONF Session Id";
+  }
+
+  typedef session-id-or-zero-type {
+    type uint32;
+    description
+      "NETCONF Session Id or Zero to indicate none";
+  }
+
+  typedef error-tag-type {
+    type enumeration {
+      enum in-use {
+        description
+          "The request requires a resource that
+           already is in use.";
+      }
+      enum invalid-value {
+        description
+          "The request specifies an unacceptable value for one
+           or more parameters.";
+      }
+      enum too-big {
+        description
+          "The request or response (that would be generated) is
+           too large for the implementation to handle.";
+      }
+      enum missing-attribute {
+        description
+          "An expected attribute is missing.";
+      }
+      enum bad-attribute {
+        description
+          "An attribute value is not correct; e.g., wrong type,
+           out of range, pattern mismatch.";
+      }
+      enum unknown-attribute {
+        description
+          "An unexpected attribute is present.";
+      }
+      enum missing-element {
+        description
+          "An expected element is missing.";
+      }
+      enum bad-element {
+        description
+          "An element value is not correct; e.g., wrong type,
+           out of range, pattern mismatch.";
+      }
+      enum unknown-element {
+        description
+          "An unexpected element is present.";
+      }
+      enum unknown-namespace {
+        description
+          "An unexpected namespace is present.";
+      }
+      enum access-denied {
+        description
+          "Access to the requested protocol operation or
+           data model is denied because authorization failed.";
+      }
+      enum lock-denied {
+        description
+          "Access to the requested lock is denied because the
+           lock is currently held by another entity.";
+      }
+      enum resource-denied {
+        description
+          "Request could not be completed because of
+           insufficient resources.";
+      }
+      enum rollback-failed {
+        description
+          "Request to roll back some configuration change (via
+           rollback-on-error or <discard-changes> operations)
+           was not completed for some reason.";
+      }
+      enum data-exists {
+        description
+          "Request could not be completed because the relevant
+           data model content already exists.  For example,
+           a 'create' operation was attempted on data that
+           already exists.";
+      }
+      enum data-missing {
+        description
+          "Request could not be completed because the relevant
+           data model content does not exist.  For example,
+           a 'delete' operation was attempted on
+           data that does not exist.";
+      }
+      enum operation-not-supported {
+        description
+          "Request could not be completed because the requested
+           operation is not supported by this implementation.";
+      }
+      enum operation-failed {
+        description
+          "Request could not be completed because the requested
+           operation failed for some reason not covered by
+           any other error condition.";
+      }
+      enum partial-operation {
+        description
+          "This error-tag is obsolete, and SHOULD NOT be sent
+           by servers conforming to this document.";
+      }
+      enum malformed-message {
+        description
+          "A message could not be handled because it failed to
+           be parsed correctly.  For example, the message is not
+           well-formed XML or it uses an invalid character set.";
+      }
+    }
+    description
+      "NETCONF Error Tag";
+    reference
+      "RFC 6241, Appendix A";
+  }
+
+  typedef error-severity-type {
+    type enumeration {
+      enum error {
+        description
+          "Error severity";
+      }
+      enum warning {
+        description
+          "Warning severity";
+      }
+    }
+    description
+      "NETCONF Error Severity";
+    reference
+      "RFC 6241, Section 4.3";
+  }
+
+  typedef edit-operation-type {
+    type enumeration {
+      enum merge {
+        description
+          "The configuration data identified by the
+           element containing this attribute is merged
+           with the configuration at the corresponding
+           level in the configuration datastore identified
+           by the target parameter.";
+      }
+      enum replace {
+        description
+          "The configuration data identified by the element
+           containing this attribute replaces any related
+           configuration in the configuration datastore
+           identified by the target parameter.  If no such
+           configuration data exists in the configuration
+           datastore, it is created.  Unlike a
+           <copy-config> operation, which replaces the
+           entire target configuration, only the configuration
+           actually present in the config parameter is affected.";
+      }
+      enum create {
+        description
+          "The configuration data identified by the element
+           containing this attribute is added to the
+           configuration if and only if the configuration
+           data does not already exist in the configuration
+           datastore.  If the configuration data exists, an
+           <rpc-error> element is returned with an
+           <error-tag> value of 'data-exists'.";
+      }
+      enum delete {
+        description
+          "The configuration data identified by the element
+           containing this attribute is deleted from the
+           configuration if and only if the configuration
+           data currently exists in the configuration
+           datastore.  If the configuration data does not
+           exist, an <rpc-error> element is returned with
+           an <error-tag> value of 'data-missing'.";
+      }
+      enum remove {
+        description
+          "The configuration data identified by the element
+           containing this attribute is deleted from the
+           configuration if the configuration
+           data currently exists in the configuration
+           datastore.  If the configuration data does not
+           exist, the 'remove' operation is silently ignored
+           by the server.";
+      }
+    }
+    default "merge";
+    description
+      "NETCONF 'operation' attribute values";
+    reference
+      "RFC 6241, Section 7.2";
+  }
+
+  // NETCONF Standard Protocol Operations
+
+  rpc get-config {
+    description
+      "Retrieve all or part of a specified configuration.";
+    reference
+      "RFC 6241, Section 7.1";
+    input {
+      container source {
+        description
+          "Particular configuration to retrieve.";
+        choice config-source {
+          mandatory true;
+          description
+            "The configuration to retrieve.";
+          leaf candidate {
+            if-feature "candidate";
+            type empty;
+            description
+              "The candidate configuration is the config source.";
+          }
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               source.";
+          }
+          leaf running {
+            type empty;
+            description
+              "The running configuration is the config source.";
+          }
+          leaf startup {
+            if-feature "startup";
+            type empty;
+            description
+              "The startup configuration is the config source.
+               This is optional-to-implement on the server because
+               not all servers will support filtering for this
+               datastore.";
+          }
+        }
+      }
+      anyxml filter {
+        description
+          "Subtree or XPath filter to use.";
+        nc:get-filter-element-attributes;
+      }
+    }
+    output {
+      anyxml data {
+        description
+          "Copy of the source datastore subset that matched
+           the filter criteria (if any).  An empty data container
+           indicates that the request did not produce any results.";
+      }
+    }
+  }
+
+  rpc edit-config {
+    description
+      "The <edit-config> operation loads all or part of a specified
+       configuration to the specified target configuration.";
+    reference
+      "RFC 6241, Section 7.2";
+    input {
+      container target {
+        description
+          "Particular configuration to edit.";
+        choice config-target {
+          mandatory true;
+          description
+            "The configuration target.";
+          leaf candidate {
+            if-feature "candidate";
+            type empty;
+            description
+              "The candidate configuration is the config target.";
+          }
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               target.";
+          }
+          leaf running {
+            if-feature "writable-running";
+            type empty;
+            description
+              "The running configuration is the config source.";
+          }
+        }
+      }
+      leaf default-operation {
+        type enumeration {
+          enum merge {
+            description
+              "The default operation is merge.";
+          }
+          enum replace {
+            description
+              "The default operation is replace.";
+          }
+          enum none {
+            description
+              "There is no default operation.";
+          }
+        }
+        default "merge";
+        description
+          "The default operation to use.";
+      }
+      leaf test-option {
+        if-feature "validate";
+        type enumeration {
+          enum test-then-set {
+            description
+              "The server will test and then set if no errors.";
+          }
+          enum set {
+            description
+              "The server will set without a test first.";
+          }
+          enum test-only {
+            description
+              "The server will only test and not set, even
+               if there are no errors.";
+          }
+        }
+        default "test-then-set";
+        description
+          "The test option to use.";
+      }
+      leaf error-option {
+        type enumeration {
+          enum stop-on-error {
+            description
+              "The server will stop on errors.";
+          }
+          enum continue-on-error {
+            description
+              "The server may continue on errors.";
+          }
+          enum rollback-on-error {
+            description
+              "The server will roll back on errors.
+               This value can only be used if the 'rollback-on-error'
+               feature is supported.";
+          }
+        }
+        default "stop-on-error";
+        description
+          "The error option to use.";
+      }
+      choice edit-content {
+        mandatory true;
+        description
+          "The content for the edit operation.";
+        anyxml config {
+          description
+            "Inline Config content.";
+        }
+        leaf url {
+          if-feature "url";
+          type inet:uri;
+          description
+            "URL-based config content.";
+        }
+      }
+    }
+  }
+
+  rpc copy-config {
+    description
+      "Create or replace an entire configuration datastore with the
+       contents of another complete configuration datastore.";
+    reference
+      "RFC 6241, Section 7.3";
+    input {
+      container target {
+        description
+          "Particular configuration to copy to.";
+        choice config-target {
+          mandatory true;
+          description
+            "The configuration target of the copy operation.";
+          leaf candidate {
+            if-feature "candidate";
+            type empty;
+            description
+              "The candidate configuration is the config target.";
+          }
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               target.";
+          }
+          leaf running {
+            if-feature "writable-running";
+            type empty;
+            description
+              "The running configuration is the config target.
+               This is optional-to-implement on the server.";
+          }
+          leaf startup {
+            if-feature "startup";
+            type empty;
+            description
+              "The startup configuration is the config target.";
+          }
+          leaf url {
+            if-feature "url";
+            type inet:uri;
+            description
+              "The URL-based configuration is the config target.";
+          }
+        }
+      }
+      container source {
+        description
+          "Particular configuration to copy from.";
+        choice config-source {
+          mandatory true;
+          description
+            "The configuration source for the copy operation.";
+          leaf candidate {
+            if-feature "candidate";
+            type empty;
+            description
+              "The candidate configuration is the config source.";
+          }
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               source.";
+          }
+          leaf running {
+            type empty;
+            description
+              "The running configuration is the config source.";
+          }
+          leaf startup {
+            if-feature "startup";
+            type empty;
+            description
+              "The startup configuration is the config source.";
+          }
+          leaf url {
+            if-feature "url";
+            type inet:uri;
+            description
+              "The URL-based configuration is the config source.";
+          }
+          anyxml config {
+            description
+              "Inline Config content: <config> element.  Represents
+               an entire configuration datastore, not
+               a subset of the running datastore.";
+          }
+        }
+      }
+    }
+  }
+
+  rpc delete-config {
+    description
+      "Delete a configuration datastore.";
+    reference
+      "RFC 6241, Section 7.4";
+    input {
+      container target {
+        description
+          "Particular configuration to delete.";
+        choice config-target {
+          mandatory true;
+          description
+            "The configuration target to delete.";
+          leaf startup {
+            if-feature "startup";
+            type empty;
+            description
+              "The startup configuration is the config target.";
+          }
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               target.";
+          }
+          leaf url {
+            if-feature "url";
+            type inet:uri;
+            description
+              "The URL-based configuration is the config target.";
+          }
+        }
+      }
+    }
+  }
+
+  rpc lock {
+    description
+      "The lock operation allows the client to lock the configuration
+       system of a device.";
+    reference
+      "RFC 6241, Section 7.5";
+    input {
+      container target {
+        description
+          "Particular configuration to lock.";
+        choice config-target {
+          mandatory true;
+          description
+            "The configuration target to lock.";
+          leaf candidate {
+            if-feature "candidate";
+            type empty;
+            description
+              "The candidate configuration is the config target.";
+          }
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               target.";
+          }
+          leaf running {
+            type empty;
+            description
+              "The running configuration is the config target.";
+          }
+          leaf startup {
+            if-feature "startup";
+            type empty;
+            description
+              "The startup configuration is the config target.";
+          }
+        }
+      }
+    }
+  }
+
+  rpc unlock {
+    description
+      "The unlock operation is used to release a configuration lock,
+       previously obtained with the 'lock' operation.";
+    reference
+      "RFC 6241, Section 7.6";
+    input {
+      container target {
+        description
+          "Particular configuration to unlock.";
+        choice config-target {
+          mandatory true;
+          description
+            "The configuration target to unlock.";
+          leaf candidate {
+            if-feature "candidate";
+            type empty;
+            description
+              "The candidate configuration is the config target.";
+          }
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               target.";
+          }
+          leaf running {
+            type empty;
+            description
+              "The running configuration is the config target.";
+          }
+          leaf startup {
+            if-feature "startup";
+            type empty;
+            description
+              "The startup configuration is the config target.";
+          }
+        }
+      }
+    }
+  }
+
+  rpc get {
+    description
+      "Retrieve running configuration and device state information.";
+    reference
+      "RFC 6241, Section 7.7";
+    input {
+      anyxml filter {
+        description
+          "This parameter specifies the portion of the system
+           configuration and state data to retrieve.";
+        nc:get-filter-element-attributes;
+      }
+    }
+    output {
+      anyxml data {
+        description
+          "Copy of the running datastore subset and/or state
+           data that matched the filter criteria (if any).
+           An empty data container indicates that the request did not
+           produce any results.";
+      }
+    }
+  }
+
+  rpc close-session {
+    description
+      "Request graceful termination of a NETCONF session.";
+    reference
+      "RFC 6241, Section 7.8";
+  }
+
+  rpc kill-session {
+    description
+      "Force the termination of a NETCONF session.";
+    reference
+      "RFC 6241, Section 7.9";
+    input {
+      leaf session-id {
+        type session-id-type;
+        mandatory true;
+        description
+          "Particular session to kill.";
+      }
+    }
+  }
+
+  rpc commit {
+    if-feature "candidate";
+    if-feature "private-candidate";
+    description
+      "Commit the candidate or private candidate configuration
+       as the device's new current configuration.";
+    reference
+      "RFC 6241, Section 8.3.4.1 and draft-ietf-netconf-privcand";
+    input {
+      leaf confirmed {
+        if-feature "confirmed-commit";
+        type empty;
+        description
+          "Requests a confirmed commit.";
+        reference
+          "RFC 6241, Section 8.3.4.1";
+      }
+      leaf confirm-timeout {
+        if-feature "confirmed-commit";
+        type uint32 {
+          range "1..max";
+        }
+        units "seconds";
+        default "600"; // 10 minutes
+        description
+          "The timeout interval for a confirmed commit.";
+        reference
+          "RFC 6241, Section 8.3.4.1";
+      }
+      leaf persist {
+        if-feature "confirmed-commit";
+        type string;
+        description
+          "This parameter is used to make a confirmed commit
+           persistent.  A persistent confirmed commit is not aborted
+           if the NETCONF session terminates.  The only way to abort
+           a persistent confirmed commit is to let the timer expire,
+           or to use the <cancel-commit> operation.
+
+           The value of this parameter is a token that must be given
+           in the 'persist-id' parameter of <commit> or
+           <cancel-commit> operations in order to confirm or cancel
+           the persistent confirmed commit.
+
+           The token should be a random string.";
+        reference
+          "RFC 6241, Section 8.3.4.1";
+      }
+      leaf persist-id {
+        if-feature "confirmed-commit";
+        type string;
+        description
+          "This parameter is given in order to commit a persistent
+           confirmed commit.  The value must be equal to the value
+           given in the 'persist' parameter to the <commit>
+           operation. If it does not match, the operation fails
+           with an 'invalid-value' error.";
+        reference
+          "RFC 6241, Section 8.3.4.1";
+      }
+    }
+  }
+
+  rpc discard-changes {
+    if-feature "candidate";
+    if-feature "private-candidate";
+    description
+      "Revert the candidate configuration to the current
+       running configuration.";
+    reference
+      "RFC 6241, Section 8.3.4.2";
+    input {
+      container target {
+        if-feature "private-candidate";
+        reference "draft-ietf-netconf-privcand";
+        description
+          "Particular configuration to discard changes from.";
+        choice config-target {
+          mandatory true;
+          description
+            "The configuration target to discard.";
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               target.";
+          }
+        }
+      }
+    }
+  }
+
+  rpc cancel-commit {
+    if-feature "confirmed-commit";
+    description
+      "This operation is used to cancel an ongoing confirmed commit.
+       If the confirmed commit is persistent, the parameter
+       'persist-id' must be given, and it must match the value of the
+       'persist' parameter.";
+    reference
+      "RFC 6241, Section 8.4.4.1";
+    input {
+      leaf persist-id {
+        type string;
+        description
+          "This parameter is given in order to cancel a persistent
+           confirmed commit.  The value must be equal to the value
+           given in the 'persist' parameter to the <commit>
+           operation.  If it does not match, the operation fails
+           with an 'invalid-value' error.";
+      }
+    }
+  }
+
+  rpc update {
+    if-feature "private-candidate";
+    description
+      "Updates the private candidate from the running
+       configuration.";
+    reference
+      "draft-ietf-netconf-privcand";
+    input {
+      leaf resolution-mode {
+        description
+          "Mode to resolve conflicts between running and
+           private-candidate configurations.";
+        default revert-on-conflict;
+        type enumeration {
+          enum revert-on-conflict;
+          enum ignore;
+          enum overwrite;
+        }
+      }
+    }
+  }
+
+  rpc validate {
+    if-feature "validate";
+    description
+      "Validates the contents of the specified configuration.";
+    reference
+      "RFC 6241, Section 8.6.4.1";
+    input {
+      container source {
+        description
+          "Particular configuration to validate.";
+        choice config-source {
+          mandatory true;
+          description
+            "The configuration source to validate.";
+          leaf candidate {
+            if-feature "candidate";
+            type empty;
+            description
+              "The candidate configuration is the config source.";
+          }
+          leaf private-candidate {
+            if-feature "private-candidate";
+            type empty;
+            description
+              "The private candidate configuration is the config
+               source.";
+          }
+          leaf running {
+            type empty;
+            description
+              "The running configuration is the config source.";
+          }
+          leaf startup {
+            if-feature "startup";
+            type empty;
+            description
+              "The startup configuration is the config source.";
+          }
+          leaf url {
+            if-feature "url";
+            type inet:uri;
+            description
+              "The URL-based configuration is the config source.";
+          }
+          anyxml config {
+            description
+              "Inline Config content: <config> element.  Represents
+               an entire configuration datastore, not
+               a subset of the running datastore.";
+          }
+        }
+      }
+    }
+  }
+}
+]]>
+        </sourcecode>
+      </section>
+      <section>
+        <name>ietf-datastores@2024-04-16.yang</name>
+        <sourcecode type="yang" markers="true" name="ietf-datastores@2024-04-16.yang">
+<![CDATA[
+module ietf-datastores {
+  yang-version 1.1;
+  namespace "urn:ietf:params:xml:ns:yang:ietf-datastores";
+  prefix ds;
+
+  organization
+    "IETF Network Modeling (NETMOD) Working Group";
+  contact
+    "WG Web:   <https://datatracker.ietf.org/wg/netmod/>
+
+     WG List:  <mailto:netmod@ietf.org>
+
+     Author:   Martin Bjorklund
+               <mailto:mbj@tail-f.com>
+
+     Author:   Juergen Schoenwaelder
+               <mailto:j.schoenwaelder@jacobs-university.de>
+
+     Author:   Phil Shafer
+               <mailto:phil@juniper.net>
+
+     Author:   Kent Watsen
+               <mailto:kwatsen@juniper.net>
+
+     Author:   Rob Wilton
+               <rwilton@cisco.com>
+
+     Author:   James Cumming
+               <james.cumming@nokia.com>
+
+     Author:   Robert Wills
+               <rowills@cisco.com>";
+  description
+    "This YANG module defines a set of identities for identifying
+     datastores.
+
+     Copyright (c) 2024 IETF Trust and the persons identified as
+     authors of the code. All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject
+     to the license terms contained in, the Revised BSD License
+     set forth in Section 4.c of the IETF Trust’s Legal Provisions
+     Relating to IETF Documents
+     (https://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC 8342
+     (https://www.rfc-editor.org/info/rfc8342); and
+     draft-ietf-netconf-privcand.  See these documents
+     for full legal notices.";
+
+  revision 2024-04-16 {
+    description
+      "Updated to introduce private candidates";
+    reference
+      "draft-ietf-netconf-privcand: Netconf Private Candidates";
+  }
+  revision 2018-02-14 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 8342: Network Management Datastore Architecture (NMDA)";
+  }
+
+  /*
+   * Identities
+   */
+
+  identity datastore {
+    description
+      "Abstract base identity for datastore identities.";
+  }
+
+  identity conventional {
+    base datastore;
+    description
+      "Abstract base identity for conventional configuration
+       datastores.";
+  }
+
+  identity running {
+    base conventional;
+    description
+      "The running configuration datastore.";
+  }
+
+  identity candidate {
+    base conventional;
+    description
+      "The candidate configuration datastore.";
+  }
+
+  identity private-candidate {
+    base conventional;
+    description
+      "The private candidate configuration datastore.";
+  }
+
+  identity startup {
+    base conventional;
+    description
+      "The startup configuration datastore.";
+  }
+
+  identity intended {
+    base conventional;
+    description
+      "The intended configuration datastore.";
+  }
+
+  identity dynamic {
+    base datastore;
+    description
+      "Abstract base identity for dynamic configuration datastores.";
+  }
+
+  identity operational {
+    base datastore;
+    description
+      "The operational state datastore.";
+  }
+
+  /*
+   * Type definitions
+   */
+
+  typedef datastore-ref {
+    type identityref {
+      base datastore;
+    }
+    description
+      "A datastore identity reference.";
+  }
+}
+
+]]>
+
+
+
+        </sourcecode>
+      </section>
+      <section>
+        <name>ietf-nmda-compare@2024-04-16.yang</name>
+        <sourcecode type="yang" markers="true" name="ietf-nmda-compare@2024-04-16.yang">
+<![CDATA[
+module ietf-nmda-compare {
+  yang-version 1.1;
+  namespace "urn:ietf:params:xml:ns:yang:ietf-nmda-compare";
+  prefix cmp;
+
+  import ietf-yang-types {
+    prefix yang;
+    reference
+      "RFC 6991: Common YANG Data Types";
+  }
+  import ietf-datastores {
+    prefix ds;
+    reference
+      "RFC 8342: Network Management Datastore
+       Architecture (NMDA)";
+  }
+  import ietf-yang-patch {
+    prefix ypatch;
+    reference
+      "RFC 8072: YANG Patch Media Type";
+  }
+  import ietf-netconf {
+    prefix nc;
+    reference
+      "RFC 6241: Network Configuration Protocol (NETCONF)";
+  }
+
+  organization
+    "IETF NETMOD (Network Modeling) Working Group";
+  contact
+    "WG Web:   <https://datatracker.ietf.org/wg/netmod/>
+     WG List:  <mailto:netmod@ietf.org>
+
+     Author: Alexander Clemm
+             <mailto:ludwig@clemm.org>
+
+     Author: Yingzhen Qu
+             <mailto:yqu@futurewei.com>
+
+     Author: Jeff Tantsura
+             <mailto:jefftant.ietf@gmail.com>
+
+     Author: Andy Bierman
+             <mailto:andy@yumaworks.com>
+             
+     Author: James Cumming
+             <mailto:james.cumming@nokia.com>
+        
+     Author: Robert Wills
+             <mailto:rowills@cisco.com>";
+  description
+    "The YANG data model defines a new operation, <compare>, that
+     can be used to compare NMDA datastores.
+
+     Copyright (c) 2021 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject to
+     the license terms contained in, the Revised BSD License set
+     forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (https://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC 9144; see the
+     RFC itself for full legal notices.";
+
+  revision 2024-04-16 {
+    description
+      "Updated to introduce private candidates";
+    reference
+      "draft-ietf-netconf-privcand: Netconf Private Candidates";
+  }
+  revision 2021-12-10 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 9144: Comparison of Network Management Datastore
+       Architecture (NMDA) Datastores";
+  }
+
+  feature private-candidate {
+    description
+      "NETCONF :private-candidate capability;
+       If the server advertises the :private-candidate
+       capability for a session, then this feature must
+       also be enabled for that session.  Otherwise,
+       this feature must not be enabled.";
+    reference
+      "draft-ietf-netconf-privcand";
+  }
+
+  /* RPC */
+
+  rpc compare {
+    description
+      "NMDA datastore compare operation.";
+    input {
+      leaf source {
+        type identityref {
+          base ds:datastore;
+        }
+        mandatory true;
+        description
+          "The source datastore to be compared.";
+      }
+      leaf target {
+        type identityref {
+          base ds:datastore;
+        }
+        mandatory true;
+        description
+          "The target datastore to be compared.";
+      }
+      leaf reference-point {
+        reference "draft-ietf-netconf-privcand";
+        if-feature "private-candidate";
+        description 
+          "When this leaf is provided and the source or
+           destination are the private-candidate datastore,
+           the comparison will either occur between the
+           last-update point of the private candidate or the
+           creation-point of the private candidate.";
+        default last-update;
+        type enumeration {
+          enum last-update;
+          enum creation-point;
+        }
+      }
+      leaf all {
+        type empty;
+        description
+          "When this leaf is provided, all data nodes are compared,
+           whether their schema node pertains to both datastores or
+           not.  When this leaf is omitted, a prefiltering step is
+           automatically applied that excludes data nodes from the
+           comparison that can occur in only one datastore but not
+           the other.  Specifically, if one of the datastores
+           (source or target) contains only configuration data and
+           the other datastore is <operational>, data nodes for
+           the config that is false are excluded from the
+           comparison.";
+      }
+      leaf report-origin {
+        type empty;
+        description
+          "When this leaf is provided, origin metadata is
+           included as part of RPC output.  When this leaf is
+           omitted, origin metadata in comparisons that involve
+           <operational> is by default omitted.";
+      }
+      choice filter-spec {
+        description
+          "Identifies the portions of the datastores to be
+               compared.";
+        anydata subtree-filter {
+          description
+            "This parameter identifies the portions of the
+             target datastore to retrieve.";
+          reference
+            "RFC 6241, Section 6.";
+        }
+        leaf xpath-filter {
+          if-feature "nc:xpath";
+          type yang:xpath1.0;
+          description
+            "This parameter contains an XPath expression
+             identifying the portions of the target
+             datastore to retrieve.";
+          reference
+            "RFC 6991: Common YANG Data Types";
+        }
+      }
+    }
+    output {
+      choice compare-response {
+        description
+          "Comparison results.";
+        leaf no-matches {
+          type empty;
+          description
+            "This leaf indicates that the filter did not match
+             anything and nothing was compared.";
+        }
+        container differences {
+          description
+            "The list of differences, encoded per RFC 8072 with an
+             augmentation to include source values where applicable.
+             When a datastore node in the source is not present in
+             the target, this can be indicated either as a 'delete'
+             or as a 'remove' as there is no difference between
+             them for the purposes of the comparison.";
+          uses ypatch:yang-patch {
+            augment "yang-patch/edit" {
+              description
+                "Provides the value of the source of the patch,
+                 respectively of the source of the comparison, in
+                 addition to the target value, where applicable.";
+              anydata source-value {
+                when "../operation = 'delete'"
+                   + "or ../operation = 'merge'"
+                   + "or ../operation = 'move'"
+                   + "or ../operation = 'replace'"
+                   + "or ../operation = 'remove'";
+                description
+                  "The anydata 'value' is only used for 'delete',
+                   'move', 'merge', 'replace', and 'remove'
+                   operations.";
+              }
+              reference
+                "RFC 8072: YANG Patch Media Type";
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+]]>
+        </sourcecode>
+      </section>
+    </section>
+
+    <section anchor="Contributors" numbered="false">
+      <name>Contributors</name>
+      <t>The authors would like to thank Andy Bierman, Jan Lindblad, Lori-Ann McGrath, Jason Sterne, 
+      Kent Watsen and Rob Wilton for their contributions and reviews.</t>
+    </section>
+  </back>
+</rfc>
