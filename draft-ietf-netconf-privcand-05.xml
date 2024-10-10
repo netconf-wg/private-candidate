@@ -29,7 +29,7 @@
       updates="6241,8342,8526,9144" 
       submissionType="IETF" 
       xml:lang="en" 
-      version="5"
+      version="3"
       consensus="true">
   <front>
     <title abbrev="NETCONF Private Candidates">NETCONF Private Candidates</title>
