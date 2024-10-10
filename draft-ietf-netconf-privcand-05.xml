@@ -23,7 +23,7 @@
      Use of an external entity file is not recommended. -->
 <rfc xmlns:xi="http://www.w3.org/2001/XInclude" 
       category="std" 
-      docName="draft-ietf-netconf-privcand-04" 
+      docName="draft-ietf-netconf-privcand-05" 
       ipr="trust200902" 
       obsoletes="" 
       updates="6241,8342,8526,9144" 
@@ -33,7 +33,7 @@
       consensus="true">
   <front>
     <title abbrev="NETCONF Private Candidates">NETCONF Private Candidates</title>
-    <seriesInfo name="Internet-Draft" value="draft-ietf-netconf-privcand-04"/>
+    <seriesInfo name="Internet-Draft" value="draft-ietf-netconf-privcand-05"/>
     <author fullname="James Cumming" initials="JG" surname="Cumming">
       <organization>Nokia</organization>
       <address>
