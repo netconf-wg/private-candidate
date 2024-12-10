@@ -46,7 +46,7 @@
         <email>rowills@cisco.com</email>
       </address>
     </author>
-    <date year="2024"/>
+    <date year="2024" month="10" day="10"/>
     <!-- On draft subbmission:
          * If only the current year is specified, the current day and month will be used.
          * If the month and year are both specified and are the current ones, the current day will
