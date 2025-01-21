@@ -402,7 +402,7 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
         <li>&lt;commit&gt; is issued (which MUST automatically issue an &lt;update&gt; operation 
         immediately prior to committing the configuration)</li>
         <li>An implementation chooses to perform an &lt;update&gt; operation after a change to
-        the running configuration by any other client</li>
+        the running configuration by any other client.</li>
         </ul>
         <t>It is possible for a private candidate configuration to become significantly out of 
         sync with the running configuration should the private candidate be open for a long time,
