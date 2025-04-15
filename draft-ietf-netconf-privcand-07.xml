@@ -161,7 +161,7 @@
           a source control management system and in the same way as the candidate
           configuration datastore as defined in <xref target="RFC6241"/>).
           When the private candidate datastore is in use, any operations that target
-          &lt;candidate&gt; (for example, &lt;edit-config&gt; and &lt;edit-data&gt; operations)
+          the &lt;candidate&gt; configuration datastore (for example, &lt;edit-config&gt; and &lt;edit-data&gt; operations)
           actually make changes to the private candidate datastore.</t>
         <t>Obtaining this private candidate over NETCONF or RESTCONF will display the entire
           configuration, including all changes made to it.  Performing a &lt;commit&gt; 
