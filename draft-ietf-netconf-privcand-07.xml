@@ -937,7 +937,8 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
             <name>&lt;get-config&gt;</name>
             <t>Performing a &lt;get-config&gt; operation with the candidate configuration datastore
             as the source input parameter will instead act on the private candidate datastore,
-            and return data from that datastore.</t>
+            and return data from that datastore. If no
+            private candidate configuration has been created, one will be created at this point.</t>
           </section>
           <section anchor="section_updates_to_edit_config">
             <name>&lt;edit-config&gt;</name>
