@@ -445,8 +445,8 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           <ul>
           <li>There is a change of any value</li>
           <li>There is a change of existence (or otherwise) of any list entry</li>
-          <li>There is a change to the order of any list or leaf-list items when the schema
-              specifies the items as "ordered-by user"</li>
+          <li>There is a change to the order of any list items in a list configured as
+              "ordered-by user"</li>
           <li>There is a change of existence (or otherwise) of a presence container</li>
           <li>There is a change of any component member of a leaf-list</li>
           <li>There is a change to the order of any items in a leaf-list configured as
