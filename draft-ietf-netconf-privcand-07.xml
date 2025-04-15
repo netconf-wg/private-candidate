@@ -32,7 +32,7 @@
       version="3"
       consensus="true">
   <front>
-    <title abbrev="NETCONF Private Candidates">NETCONF Private Candidates</title>
+    <title abbrev="NETCONF/RESTCONF Private Candidates">NETCONF and RESTCONF Private Candidate Datastores</title>
     <seriesInfo name="Internet-Draft" value="draft-ietf-netconf-privcand-07"/>
     <author fullname="James Cumming" initials="JG" surname="Cumming">
       <organization>Nokia</organization>
@@ -132,9 +132,10 @@
       <name>Definitions and terminology</name>
       <section>
         <name>Session specific datastore</name>
-        <t>A session specific datastore is a configuration datastore that,
-          unlike the candidate and running configuration datastores which
-          have only one per system, is bound to the specific NETCONF session.
+        <t>A session specific datastore is a configuration datastore that
+          is bound to the specific NETCONF session or RESTCONF request,
+          unlike the shared candidate and running configuration datastores which
+          have only one per system.
         </t>
       </section>
       <section>
@@ -159,9 +160,9 @@
           configuration when it is created (in the same way as a branch does in
           a source control management system and in the same way as the candidate
           configuration datastore as defined in <xref target="RFC6241"/>).
-          Any changes made to it, for example, through the use of operations such
-          as &lt;edit-config&gt; and &lt;edit-data&gt;, are made in this private
-          candidate configuration.</t>
+          When the private candidate datastore is in use, any operations that target
+          &lt;candidate&gt; (for example, &lt;edit-config&gt; and &lt;edit-data&gt; operations)
+          actually make changes to the private candidate datastore.</t>
         <t>Obtaining this private candidate over NETCONF or RESTCONF will display the entire
           configuration, including all changes made to it.  Performing a &lt;commit&gt; 
           operation will merge the changes from the private candidate into the running 
@@ -174,7 +175,7 @@
         <t>All changes made to this private candidate configuration are held
            separately from any other candidate configuration changes, whether
            made by other users to the shared candidate or any other private candidate,
-           and are not visible to or accessible by anyone else.</t>
+           and are not visible to or accessible by any other configuration session.</t>
       </section>
     </section>
     <section>
@@ -199,7 +200,7 @@
         </section>
       </section>
       <section>
-        <name>Current mitigation strategies</name>
+        <name>Mitigation strategies when using a shared candidate datastore</name>
         <section>
           <name>Locking the shared candidate configuration datastore</name>
           <t>
@@ -213,7 +214,7 @@
              desirable consequence when two clients are editing the same section of the configuration,
              where they are editing different sections this behaviour may hold up valid operational
              activity.</t>
-          <t>Additionally, a lock placed on the shared candidate configuration must also lock the
+          <t>Additionally, a lock placed on the shared candidate configuration datastore must also lock the
           running configuration, otherwise changes committed directly into the running datastore
           may conflict.</t>
 	  <t>Finally, this locking mechanism isn't available to RESTCONF clients.</t>
@@ -238,6 +239,7 @@
           <t>Partial locking additionally requires that the client is aware of
           any interdependencies within the servers YANG models in order to lock all
           parts of the tree.</t>
+          <t>Finally, partial locking is not widely implemented.</t>
         </section>
       </section>
     </section>
@@ -386,7 +388,7 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
         </artwork>
         <t>In this situation, if, how and when private candidate 2 is updated with the
         information that the running configuration has changed must be considered.</t>
-        <t>As described earlier, the client MUST be aware of changes to it's private candidate 
+        <t>As described earlier, the client MUST be aware of changes to its private candidate 
         configuration so it can be assured that it is only committing its own modifications. 
         It should also be aware of any changes to the current running configuration.</t>
         <t>It is possible, during an update, for conflicts to occur and the detection and 
@@ -429,7 +431,7 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
             been different had it had a different starting point.  In configuration
             terms, a conflict occurs when the same set of nodes in a configuration being
             altered by one user are changed between the start of the configuration
-            preparation (the first &lt;edit-config&gt;/&lt;edit-data&gt; operation)
+            preparation (when an RPC first references it)
             and the conclusion of this configuration activity (terminated by a
             &lt;commit&gt; operation).</t>
           <t>The situation where conflicts have the potential of occurring are when
@@ -443,18 +445,16 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           <ul>
           <li>There is a change of any value</li>
           <li>There is a change of existence (or otherwise) of any list entry</li>
-          <li>There is a change to the order of any list items in a list configured as
-              "ordered-by user"</li>
+          <li>There is a change to the order of any list or leaf-list items when the schema
+              specifies the items as "ordered-by user"</li>
           <li>There is a change of existence (or otherwise) of a presence container</li>
           <li>There is a change of any component member of a leaf-list</li>
           <li>There is a change to the order of any items in a leaf-list configured as
               "ordered-by user"</li>
-          <li>There is a change of existance (or otherwise) of a leaf with an Empty type
-          definition</li>
+          <li>There is a change of existence (or otherwise) of a leaf</li>
           <li>There is a change to any YANG metadata associated with the node</li>
           </ul>
-          <t>A server MAY choose to add additional checks over and above the above
-          list.</t>
+          <t>A server MAY choose to add extra checks in addition to the list above.</t>
           <t>If a server implements the transaction ID feature then this MAY be considered
           as part of detecting a conflict.</t>
           <t>Examples of conflicts include:</t>
@@ -479,7 +479,7 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
               operation, such as when a &lt;commit&gt; operation is performed by the 
               client in the private candidate session.</li>
           </ul>
-          <t>When a conflict is identified that node is marked by the server as "in conflict"
+          <t>When a conflict is identified that node is internally marked by the server as "in conflict"
           in the private candidate.  This "in conflict" status does not propagate back up 
           the tree to the parent node(s).  Each node in the ancestral tree is evaluated 
           as in conflict or otherwise on its own merits.  The "in conflict" marker 
@@ -901,12 +901,12 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           <section anchor="section_updates_to_commit">
             <name>&lt;commit&gt;</name>
             <t>The behaviour of the &lt;commit&gt; operation is updated such that
-            the issuing a &lt;commit&gt; MUST follow a two step process in order to 
+            processing a &lt;commit&gt; MUST follow a two step process in order to 
             copy the proposed private configuration into the running configuration.  
             These steps are:</t>
             <ol>
               <li>An implicit update operation MUST be performed by the server using the
-              resolution-mode revert-on-conflict (described later in this document).</li>
+              resolution-mode revert-on-conflict (described earlier in this document).</li>
               <li>On successful completion of step 1, the private candidate configuration 
               is copied into the running configuration replacing the current contents.</li>
             </ol>
@@ -936,8 +936,8 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           <section anchor="section_updates_to_get_config">
             <name>&lt;get-config&gt;</name>
             <t>Performing a &lt;get-config&gt; operation with the candidate configuration datastore
-            as the source, the configuration from the private candidate will be returned.  If no
-            private candidate configuration has been created, one will be created at this point.</t>
+            as the source input parameter will instead act on the private candidate datastore,
+            and return data from that datastore.</t>
           </section>
           <section anchor="section_updates_to_edit_config">
             <name>&lt;edit-config&gt;</name>
@@ -1185,10 +1185,10 @@ module ietf-netconf-private-candidate {
     </section>
 
     <section anchor="Contributors" numbered="false">
-      <name>Contributors</name>
+      <name>Acknowledgements</name>
       <t>The authors would like to thank Andy Bierman, Jan Lindblad, Lori-Ann McGrath, 
-      Dylan Sadoun, Jason Sterne, Kent Watsen and Rob Wilton for their contributions 
-      and reviews.</t>
+      Dylan Sadoun, Jason Sterne, Kent Watsen and Rob Wilton for their reviews and 
+      feedback.</t>
     </section>
   </back>
 </rfc>
