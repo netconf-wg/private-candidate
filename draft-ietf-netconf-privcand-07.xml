@@ -1090,12 +1090,6 @@ module ietf-netconf-private-candidate {
         "WG Web:   <http://tools.ietf.org/wg/netconf/>
         WG List:  <netconf@ietf.org>
 
-        WG Chair: Kent Watsen
-                <kent+ietf@watsen.net>
-
-        WG Chair: Per Andersson
-                <per.ietf@ionio.se>
-
         Editor:   James Cumming
                 <james.cumming@nokia.com>
 
