@@ -431,7 +431,7 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
             been different had it had a different starting point.  In configuration
             terms, a conflict occurs when the same set of nodes in a configuration being
             altered by one user are changed between the start of the configuration
-            preparation (when an RPC first references it)
+            preparation (the first &lt;edit-config&gt;/&lt;edit-data&gt; operation)
             and the conclusion of this configuration activity (terminated by a
             &lt;commit&gt; operation).</t>
           <t>The situation where conflicts have the potential of occurring are when
