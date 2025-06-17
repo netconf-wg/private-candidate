@@ -1149,7 +1149,7 @@ module ietf-netconf-private-candidate {
                         description 
                             "Reject update when any conflicting 
                             node is found and revert the private
-                            candidate configuration datastore to it
+                            candidate configuration datastore to its
                             state prior to issuing the update.";
                     }
                     enum prefer-candidate {
