@@ -414,8 +414,8 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
         <t>In this situation, if, how and when private candidate 2 is updated with the
         information that the running configuration has changed must be considered.</t>
         <t>As described earlier, the client MUST be aware of changes to its private candidate 
-        configuration so it can be assured that it is only committing its own modifications. 
-        It should also be aware of any changes to the current running configuration.</t>
+        configuration that are different from the running configuration datastore so it can 
+        be assured that it is only committing its own modifications.</t>
         <t>It is possible, during an update, for conflicts to occur and the detection and 
         resolution of these is discussed later in this document.</t>
         <t>A good way to understand the interaction between candidates is to consider them as 
