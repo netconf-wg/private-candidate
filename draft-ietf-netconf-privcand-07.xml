@@ -308,8 +308,7 @@
         updates the running configuration datastore.  Triggering an update in
         this manner must be specifically chosen and signalled by a server
         using an optional parameter to the :private-candidate NETCONF capability
-        (<xref target="how_to_signal_privcand">see the "how to signal the use of
-        private candidates" section</xref>).</t>
+        (see <xref target="how_to_signal_privcand"/>).</t>
         <t>A &lt;commit&gt; operation always issues an implicit &lt;update&gt;, 
         therefore it is not necessary for a client to perform an &lt;update&gt; 
         efore a &lt;commit&gt;. The implicit &lt;update&gt; will fail if 
@@ -329,6 +328,10 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           <t>As support for the shared candidate configuration datastore is a 
           pre-requisite for the private candidate functionlity, a server MUST also 
           advertise the :candidate capability as defined in <xref target="RFC6241"/>.</t>
+          <t>If a server chooses to execute an update operation automatically when 
+          any client (not just the local client) performs an update to the running 
+          configuration datastore it must advertise this behaviour using the following
+          optional parameter to the capability trigger=all-updates must be provided.</t>
         </section>
         <section>
           <name>NETCONF client</name>
