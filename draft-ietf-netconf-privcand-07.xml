@@ -296,6 +296,27 @@
         disconnected for any other reason (such as a loss of network connectivity).</t> 
       </section>
       <section>
+        <name>When is a private candidate updated</name>
+        <t>An &lt;update&gt; operation performed on a private candidate triggers a 
+        rebase of the private candidate configuration datastore against the running 
+        configuration datastore.  This rebase is conceptually described as replacing 
+        the candidate configuration datastore with the current running configuration 
+        datastore at that point in time and replaying the configuration changes from 
+        the candidate configuration datastore against it, identifying any conflicts 
+        as this process progresses.</t>
+        <t>A server may choose to automatically issue an update when any client
+        updates the running configuration datastore.  Triggering an update in
+        this manner must be specifically chosen and signalled by a server
+        using an optional parameter to the :private-candidate NETCONF capability
+        (see <xref target="how_to_signal_privcand"/>).</t>
+        <t>A &lt;commit&gt; operation always issues an implicit &lt;update&gt;, 
+        therefore it is not necessary for a client to perform an &lt;update&gt; 
+        before a &lt;commit&gt;. The implicit &lt;update&gt; will fail if 
+        conflicts are found.</t>
+        <t>More details on the &lt;update&gt; operation are provided later in this
+        document.</t>
+      </section>
+      <section anchor="how_to_signal_privcand">
         <name>How to signal the use of private candidates</name>
         <section>
           <name>Server</name>
@@ -307,6 +328,10 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           <t>As support for the shared candidate configuration datastore is a 
           pre-requisite for the private candidate functionlity, a server MUST also 
           advertise the :candidate capability as defined in <xref target="RFC6241"/>.</t>
+          <t>If a server chooses to execute an update operation automatically when 
+          any client (not just the local client) performs an update to the running 
+          configuration datastore it must advertise this behaviour using the following
+          optional parameter to the capability: trigger=all-updates.</t>
         </section>
         <section>
           <name>NETCONF client</name>
@@ -389,8 +414,8 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
         <t>In this situation, if, how and when private candidate 2 is updated with the
         information that the running configuration has changed must be considered.</t>
         <t>As described earlier, the client MUST be aware of changes to its private candidate 
-        configuration so it can be assured that it is only committing its own modifications. 
-        It should also be aware of any changes to the current running configuration.</t>
+        configuration that are different from the running configuration datastore so it can 
+        be assured that it is only committing its own modifications.</t>
         <t>It is possible, during an update, for conflicts to occur and the detection and 
         resolution of these is discussed later in this document.</t>
         <t>A good way to understand the interaction between candidates is to consider them as 
@@ -411,11 +436,10 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
         however, most NETCONF configuration activities (between the first 
         &lt;edit-config&gt;/&lt;edit-data&gt; and a &lt;commit&gt;) are short-lived.</t>
         <t>An implementation may choose, optionally, to automatically perform an &lt;update&gt; 
-        operation automatically on each private candidate configuration datastore after a 
-        change to the running configuration from another client.  However, this choice should 
-        be made with caution as it will replace, overwrite, or otherwise alter (depending on 
-        the servers system resolution mode, discussed later) the private candidate configuration
-        without notifying the client.</t>
+        operation on each private candidate configuration datastore after a change to the running 
+        configuration from another client.  In this situation, the client will be unaware of 
+        these changes to its private candidate configuration datastore, and issuing a manual 
+        &lt;update&gt; operation will be a no-op.</t>
         <t>A <xref target="RFC9144">&lt;compare&gt;</xref> operation MAY be performed against:</t>
         <ul>
         <li>The initial creation point of the private candidate's branch</li>
