@@ -331,7 +331,7 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           <t>If a server chooses to execute an update operation automatically when 
           any client (not just the local client) performs an update to the running 
           configuration datastore it must advertise this behaviour using the following
-          optional parameter to the capability trigger=all-updates must be provided.</t>
+          optional parameter to the capabilit: trigger=all-updates.</t>
         </section>
         <section>
           <name>NETCONF client</name>
