@@ -296,6 +296,28 @@
         disconnected for any other reason (such as a loss of network connectivity).</t> 
       </section>
       <section>
+        <name>When is a private candidate updated</name>
+        <t>An &lt;update&gt; operation performed on a private candidate triggers a 
+        rebase of the private candidate configuration datastore against the running 
+        configuration datastore.  This rebase is conceptually described as replacing 
+        the candidate configuration datastore with the current running configuration 
+        datastore at that point in time and replaying the configuration changes from 
+        the candidate configuration datastore against it, identifying any conflicts 
+        as this process progresses.</t>
+        <t>A server may choose to automatically issue an update when any client
+        updates the running configuration datastore.  Triggering an update in
+        this manner must be specifically chosen and signalled by a server
+        using an optional parameter to the :private-candidate NETCONF capability
+        (<xref target="how_to_signal_privcand">see the "how to signal the use of
+        private candaidates section</xref>).</t>
+        <t>A &lt;commit&gt; operation always issues an implicit &lt;update&gt;, 
+        therefore it is not necessary for a client to perform an &lt;update&gt; 
+        efore a &lt;commit&gt;. The implicit &lt;update&gt; will fail if 
+        conflicts are found.</t>
+        <t>More details on the &lt;update&gt; operation are provided later in this
+        document.</t>
+      </section>
+      <section anchor="how_to_signal_privcand">
         <name>How to signal the use of private candidates</name>
         <section>
           <name>Server</name>
