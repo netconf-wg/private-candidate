@@ -411,11 +411,10 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
         however, most NETCONF configuration activities (between the first 
         &lt;edit-config&gt;/&lt;edit-data&gt; and a &lt;commit&gt;) are short-lived.</t>
         <t>An implementation may choose, optionally, to automatically perform an &lt;update&gt; 
-        operation automatically on each private candidate configuration datastore after a 
-        change to the running configuration from another client.  However, this choice should 
-        be made with caution as it will replace, overwrite, or otherwise alter (depending on 
-        the servers system resolution mode, discussed later) the private candidate configuration
-        without notifying the client.</t>
+        operation on each private candidate configuration datastore after a change to the running 
+        configuration from another client.  In this situation, the client will be unaware of 
+        these changes to its private candidate configuration datastore, and issuing a manual 
+        &lt;update&gt; operation will be a no-op.</t>
         <t>A <xref target="RFC9144">&lt;compare&gt;</xref> operation MAY be performed against:</t>
         <ul>
         <li>The initial creation point of the private candidate's branch</li>
