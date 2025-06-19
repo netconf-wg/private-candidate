@@ -312,7 +312,7 @@
         private candidates" section</xref>).</t>
         <t>A &lt;commit&gt; operation always issues an implicit &lt;update&gt;, 
         therefore it is not necessary for a client to perform an &lt;update&gt; 
-        efore a &lt;commit&gt;. The implicit &lt;update&gt; will fail if 
+        before a &lt;commit&gt;. The implicit &lt;update&gt; will fail if 
         conflicts are found.</t>
         <t>More details on the &lt;update&gt; operation are provided later in this
         document.</t>
