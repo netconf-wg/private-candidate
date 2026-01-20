@@ -507,7 +507,8 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           in the private candidate.  This "in conflict" status does not propagate back up 
           the tree to the parent node(s).  Each node in the ancestral tree is evaluated 
           as in conflict or otherwise on its own merits.  The "in conflict" marker 
-          remains until the conflict is resolved on that node.</t>
+          remains until the conflict is resolved on that node.  The mechanism by which a server
+		  marks a node as "in conflict" is outside the scope of this draft.</t>
           <t>When a conflict occurs:</t>
           <ul>
           <li>The client MUST be given the opportunity to re-evaluate its intent based 
