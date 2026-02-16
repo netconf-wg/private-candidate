@@ -26,7 +26,7 @@
       docName="draft-ietf-netconf-privcand-09" 
       ipr="trust200902" 
       obsoletes="" 
-      updates="6241,8342,8526,9144" 
+      updates="6241,8526,9144" 
       submissionType="IETF" 
       xml:lang="en" 
       version="3"
@@ -147,6 +147,7 @@
               the change to item A and, if they had been aware, may have decided not to proceed.
             </t>
           </section>
+          </section>
           <section>
             <name>Mitigation strategies when using a shared candidate datastore</name>
             <section>
@@ -177,7 +178,7 @@
               at the point they commit the activity.</t>
             </section>
             <section>
-              <name>Fine-grained locking</name>
+              <name>Fine-grained (partial) locking</name>
               <t><xref target="RFC5717"/> describes a partial lock mechanism that
                 can be used on specific portions of the shared candidate datastore.</t>
               <t>Partial locking does not solve the issues of staging a set of
@@ -190,7 +191,7 @@
               <t>Finally, partial locking is not widely implemented.</t>
             </section>
           </section>
-        </section>
+  
       </section>
     </section>
     <section>
@@ -203,13 +204,13 @@
           have only one per system.
         </t>
       </section>
-      <section>
+      <section anchor="definition_shared_candidate">
         <name>Shared candidate configuration</name>
         <t>The candidate configuration datastore defined in
           <xref target="RFC6241"/> is referenced as the shared candidate
           configuration in this document.</t>
       </section>
-      <section>
+      <section anchor="definition_private_candidate">
         <name>Private candidate configuration</name>
         <t>A private candidate configuration is a session specific candidate
           configuration datastore.</t>
@@ -227,7 +228,7 @@
           configuration datastore as defined in <xref target="RFC6241"/>).
           When the private candidate datastore is in use, any operations that target
           the &lt;candidate&gt; configuration datastore (for example, &lt;edit-config&gt; and &lt;edit-data&gt; operations)
-          actually make changes to the private candidate datastore.</t>
+          actually make changes to the private candidate datastore instead of the shared candidate configuration datastore.</t>
         <t>Obtaining this private candidate over NETCONF or RESTCONF will display the entire
           configuration, including all changes made to it.  Performing a &lt;commit&gt; 
           operation will merge the changes from the private candidate into the running 
@@ -264,7 +265,7 @@
          the entire duration of the NETCONF session.</t>
       <section>
         <name>What is a private candidate</name>
-        <t>A private candidate is defined earlier in the definitions and terminology
+        <t>A private candidate is defined in the <xref target="definition_private_candidate">definitions and terminology</xref>
           section of this document.</t>
       </section>
       <section anchor="section_when_created">
@@ -352,7 +353,8 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
           <ul>
           <li>Ignore the capability and continue with the session without the use of 
           private candidates (this ensures backwards compatibility with older servers).</li>
-          <li>Close the session as the requested functionality cannot be provided.</li>
+          <li>Close the session as the requested functionality cannot be provided. New 
+          clients and servers implementing private candidate support should use this option.</li>
           </ul>
           <t>When a server receives the client capability its mode of operation
           will be set to private candidate mode for the duration of the NETCONF
@@ -426,8 +428,8 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
         <ul>
         <li>The client requests that the private candidate be refreshed using a new &lt;update&gt;
         operation</li>
-        <li>&lt;commit&gt; is issued (which MUST automatically issue an &lt;update&gt; operation 
-        immediately prior to committing the configuration)</li>
+        <li>&lt;commit&gt; is issued from the private candidate (which MUST automatically issue an 
+        &lt;update&gt; operation for that private candidate immediately prior to committing the configuration)</li>
         <li>An implementation chooses to perform an &lt;update&gt; operation after a change to
         the running configuration by any other client.</li>
         </ul>
@@ -435,17 +437,18 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
         sync with the running configuration should the private candidate be open for a long time,
         however, most NETCONF configuration activities (between the first 
         &lt;edit-config&gt;/&lt;edit-data&gt; and a &lt;commit&gt;) are short-lived.</t>
-        <t>An implementation may choose, optionally, to automatically perform an &lt;update&gt; 
-        operation on each private candidate configuration datastore after a change to the running 
-        configuration from another client.  In this situation, the client will be unaware of 
-        these changes to its private candidate configuration datastore, and issuing a manual 
-        &lt;update&gt; operation will be a no-op.</t>
-        <t>A <xref target="RFC9144">&lt;compare&gt;</xref> operation MAY be performed against:</t>
+        <t>To provide visibility into the differences between the private candidate configuration
+        datastore a <xref target="RFC9144">&lt;compare&gt;</xref> operation MAY be performed against:</t>
         <ul>
         <li>The initial creation point of the private candidate's branch</li>
         <li>Against the last update point of the private candidate's branch</li>
         <li>Against the running configuration</li>
         </ul>
+        <t>An implementation may choose, optionally, to automatically perform an &lt;update&gt; 
+        operation on each private candidate configuration datastore after a change to the running 
+        configuration from another client.  In this situation, the client will be unaware of 
+        these changes to its private candidate configuration datastore, and issuing a manual 
+        &lt;update&gt; operation will be a no-op.</t>
       </section>
       <section>
         <name>Detecting and resolving conflicts</name>
@@ -1069,11 +1072,32 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
       <name>IANA Considerations</name>
       <t>This document requests the registration the the following NETCONF capabilities:</t>
       <ul><li>urn:ietf:params:netconf:capability:private-candidate:1.0 (Version 1.0)</li></ul>
+      <t>This document also requests the registration of the following YANG modules in the
+      YANG Module Names registry and in the IETF XML:</t>
+      <ul>
+        <li>ietf-netconf-private-candidate</li>
+        <li>ietf-netconf-private-candidate-compare</li>
+      </ul>
     </section>
     <section anchor="Security">
       <!-- All drafts are required to have a security considerations section. See RFC 3552 for a guide. -->
       <name>Security Considerations</name>
-      <t>This document should not affect the security of the Internet.</t>
+      <t>The "ietf-netconf-private-candidate" and "ietf-netconf-private-candidate-compare" YANG modules 
+      define data models that are designed to be accessed via YANG-based management protocols, such as 
+      NETCONF [RFC6241] and RESTCONF [RFC8040]. These YANG-based management protocols (1) have to use 
+      a secure transport layer (e.g., SSH [RFC4252], TLS [RFC8446], and QUIC [RFC9000]) and (2) have 
+      to use mutual authentication.</t>
+      <t>The Network Configuration Access Control Model (NACM) [RFC8341] provides the means to restrict 
+      access for particular NETCONF or RESTCONF users to a preconfigured subset of all available NETCONF 
+      or RESTCONF protocol operations and content.</t>
+      <t>Some of the RPC or action operations in this YANG module may be considered sensitive or 
+      vulnerable in some network environments. It is thus important to control access to these 
+      operations. Specifically, the following operations have particular sensitivities/vulnerabilities:</t>
+      <ul>
+        <li>&lt;update&gt;:  This operation modifies the private candidate configuration based on the 
+        current running configuration. Unauthorized access to this operation could lead to 
+        unintended configuration changes in the private candidate.</li>
+      </ul>
     </section>
     <!-- NOTE: The Acknowledgements and Contributors sections are at the end of this template -->
   </middle>
@@ -1098,18 +1122,15 @@ urn:ietf:params:netconf:capability:private-candidate:1.0
     <section>
       <name>YANG modules</name>
       <section>
-        <name>ietf-netconf-private-candidate@2024-09-12.yang</name>
-        <sourcecode type="yang" markers="true" name="ietf-netconf-private-candidate@2025-10-30.yang">
+        <name>ietf-netconf-private-candidate@2026-02-03.yang</name>
+        <sourcecode type="yang" markers="true" name="ietf-netconf-private-candidate@2026-02-03.yang">
 <![CDATA[
 module ietf-netconf-private-candidate {
   yang-version 1.1;
   namespace "urn:ietf:params:xml:ns:yang:ietf-netconf-private-candidate";
   prefix pc;
 
-  import ietf-nmda-compare {
-    prefix cmp;
-  }
-
+  
   organization
     "IETF NETCONF (Network Configuration) Working Group";
   contact
@@ -1144,6 +1165,13 @@ module ietf-netconf-private-candidate {
      described in BCP 14 (RFC 2119) (RFC 8174) when, and only when,
      they appear in all capitals, as shown here.";
 
+  revision 2026-02-03 {
+    description
+      "Introduce private candidate support";
+    reference
+      "draft-ietf-netconf-privcand:
+       Netconf Private Candidates";
+  }
   revision 2025-10-30 {
     description
       "Introduce private candidate support";
@@ -1207,9 +1235,84 @@ module ietf-netconf-private-candidate {
       }
     }
   }
+}
+]]>
+        </sourcecode>
+      </section>
+      <section>
+        <name>ietf-netconf-private-candidate-compare@2026-02-03.yang</name>
+        <sourcecode type="yang" markers="true" name="ietf-netconf-private-candidate-compare@2026-02-03.yang">
+<![CDATA[
+module ietf-netconf-private-candidate-compare {
+  yang-version 1.1;
+  namespace "urn:ietf:params:xml:ns:yang:ietf-netconf-private-candidate-compare";
+  prefix pccmp;
+
+  import ietf-netconf-private-candidate {
+    prefix pc;
+  }
+  import ietf-nmda-compare {
+    prefix cmp;
+  }
+
+  organization
+    "IETF NETCONF (Network Configuration) Working Group";
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/netconf/>
+     WG List:  <netconf@ietf.org>
+
+     Editor:   James Cumming
+            <james.cumming@nokia.com>
+
+     Editor:   Robert Wills
+            <rowills@cisco.com>";
+  description
+    "NETCONF private candidate support.
+
+     Copyright (c) <year> IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject to
+     the license terms contained in, the Revised BSD License set
+     forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (https://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC XXXX
+     (https://www.rfc-editor.org/info/rfcXXXX); see the RFC itself
+     for full legal notices.
+
+     The key words 'MUST', 'MUST NOT', 'REQUIRED', 'SHALL', 'SHALL
+     NOT', 'SHOULD', 'SHOULD NOT', 'RECOMMENDED', 'NOT RECOMMENDED',
+     'MAY', and 'OPTIONAL' in this document are to be interpreted as
+     described in BCP 14 (RFC 2119) (RFC 8174) when, and only when,
+     they appear in all capitals, as shown here.";
+
+  revision 2026-02-03 {
+    description
+      "Introduce private candidate support";
+    reference
+      "draft-ietf-netconf-privcand:
+       Netconf Private Candidates";
+  }
+  revision 2025-10-30 {
+    description
+      "Introduce private candidate support";
+    reference
+      "draft-ietf-netconf-privcand:
+       Netconf Private Candidates";
+  }
+  revision 2024-09-12 {
+    description
+      "Introduce private candidate support";
+    reference
+      "draft-ietf-netconf-privcand:
+       Netconf Private Candidates";
+  }
 
   augment "/cmp:compare/cmp:input" {
-    if-feature "private-candidate";
+    if-feature "pc:private-candidate";
     description
       "Augment private candidate extensions into the NETCONF compare
        RPC";
