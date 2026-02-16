@@ -84,8 +84,8 @@
 		 by another client.  <br/><br/>
 		 
 		 NETCONF provides a way to mitigate this behaviour by allowing clients
-		 to place a lock on the shared candidate.  The placing of this lock means that
-		 no other client may make any changes until that lock is released.  This behaviour
+		 to place a lock on the shared candidate.  This lock prevents other clients from
+		 making changes until the lock is released, but this behaviour
 		 is, in many situations, also undesirable.  <br/><br/>
 
 		 Many network devices support candidate configurations within the CLI interface, 
@@ -127,7 +127,7 @@
           private candidate datastore.  These updates are described in
           <xref target="section_updates_to_compare"/>.</t>
       </section>
-      <section>
+      <section anchor="section_limitations_of_shared_candidate">
         <name>Limitations using the shared candidate configuration for multiple clients</name>
         <t>The following sections describe some limitations and mitigation factors in
         more detail for the use of the shared candidate configuration during multi-client
@@ -197,8 +197,8 @@
     <section>
       <name>Definitions and terminology</name>
       <section>
-        <name>Session specific datastore</name>
-        <t>A session specific datastore is a configuration datastore that
+        <name>Session-specific datastore</name>
+        <t>A session-specific datastore is a configuration datastore that
           is bound to the specific NETCONF session or RESTCONF request,
           unlike the shared candidate and running configuration datastores which
           have only one per system.
@@ -212,7 +212,7 @@
       </section>
       <section anchor="definition_private_candidate">
         <name>Private candidate configuration</name>
-        <t>A private candidate configuration is a session specific candidate
+        <t>A private candidate configuration is a session-specific candidate
           configuration datastore.</t>
         <t>When a private candidate is used by NETCONF, the specific session
 	  (and user) that created the private
@@ -246,8 +246,10 @@
     </section>
     <section>
       <name>Private candidates solution</name>
-      <t>The use of private candidates resolves the issues
-        detailed earlier in this document.</t>
+	  <t>To resolve the concurrency and locking issues described in <xref target="section_limitations_of_shared_candidate" />
+		without sacrificing the benefits of a candidate datastore, this document introduces
+		the concept of a private candidate: a session-specific datastore that isolates changes
+		until they are ready to be committed.
       <t>NETCONF sessions and RESTCONF clients are able to utilize private candidates
          to streamline network operations, particularly for
          machine-to-machine communication.</t>
