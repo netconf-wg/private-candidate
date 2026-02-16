@@ -246,10 +246,10 @@
     </section>
     <section>
       <name>Private candidates solution</name>
-	  <t>To resolve the concurrency and locking issues described in <xref target="section_limitations_of_shared_candidate" />
+	  <t>To resolve the concurrency and locking issues described in <xref target="section_limitations_of_shared_candidate"/>
 		without sacrificing the benefits of a candidate datastore, this document introduces
 		the concept of a private candidate: a session-specific datastore that isolates changes
-		until they are ready to be committed.
+		until they are ready to be committed.</t>
       <t>NETCONF sessions and RESTCONF clients are able to utilize private candidates
          to streamline network operations, particularly for
          machine-to-machine communication.</t>
